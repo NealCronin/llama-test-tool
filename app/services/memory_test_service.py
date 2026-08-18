@@ -34,7 +34,7 @@ def translate_fit_params_arguments(
     result: list[str] = []
     skipped: list[str] = []
     skipped_controls = set(_FIT_PRINT)
-    overridden = set(_FIT_TARGET + _FIT_CONTEXT) if (fit_target or fit_context) else set()
+    overridden = (set(_FIT_TARGET) if fit_target else set()) | (set(_FIT_CONTEXT) if fit_context else set())
     for argument in command.arguments:
         if argument.source_type == "model_default_template":
             skipped.append(f"{argument.flag}: model-default template has no argv value")

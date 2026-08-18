@@ -1,28 +1,33 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
+from PySide6.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
 
 from app.models.flags import FlagSpec
 from app.services.flag_catalog import FlagCatalog
 
 
 class SearchableFlagPicker(QDialog):
-    def __init__(self, catalog: FlagCatalog, parent=None) -> None:
+    def __init__(self, catalog: FlagCatalog, show_advanced: bool = False, parent=None) -> None:
         super().__init__(parent)
         self.catalog = catalog
         self.selected: FlagSpec | None = None
         self.selected_flag: str | None = None
+        self.show_advanced = show_advanced
         self.setWindowTitle("Add llama.cpp argument")
         self.resize(700, 440)
         layout = QVBoxLayout(self)
         self.search = QLineEdit(placeholderText="Search flag names, aliases, or descriptions…")
+        self.advanced = QCheckBox("Show Advanced Arguments")
+        self.advanced.setChecked(show_advanced)
         self.results = QListWidget()
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
         layout.addWidget(self.search)
+        layout.addWidget(self.advanced)
         layout.addWidget(self.results)
         layout.addWidget(buttons)
         self.search.textChanged.connect(self.populate)
+        self.advanced.toggled.connect(self._set_advanced)
         self.results.itemDoubleClicked.connect(lambda _: self.accept())
         self.results.currentItemChanged.connect(lambda *_: buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(self.results.currentItem() is not None))
         buttons.accepted.connect(self.accept)
@@ -35,7 +40,8 @@ class SearchableFlagPicker(QDialog):
         self.results.clear()
         query = self.search.text().strip()
         entries: list[tuple[FlagSpec, str]] = []
-        for spec in self.catalog.search(query)[:100]:
+        specs = self.catalog.search(query) if self.advanced.isChecked() else [spec for spec in self.catalog.common_specs() if spec.matches(query)]
+        for spec in specs[:100]:
             flags = (spec.preferred_name, *spec.negative_aliases) if spec.negative_aliases else (spec.preferred_name,)
             entries.extend((spec, flag) for flag in dict.fromkeys(flags))
         entries.sort(key=lambda entry: (entry[1] != query, entry[1]))
@@ -51,6 +57,10 @@ class SearchableFlagPicker(QDialog):
                 self.results.setCurrentItem(item)
         if self.results.count() and self.results.currentItem() is None:
             self.results.setCurrentRow(0)
+
+    def _set_advanced(self, checked: bool) -> None:
+        self.show_advanced = checked
+        self.populate()
 
     def accept(self) -> None:
         item = self.results.currentItem()

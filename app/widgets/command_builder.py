@@ -33,8 +33,7 @@ class CommandBuilder(QWidget):
     def __init__(self, settings: AppSettings, catalog: FlagCatalog, parent=None) -> None:
         super().__init__(parent)
         self.settings, self.catalog = settings, catalog
-        self.command = Command.from_dict(settings.last_command) if settings.last_command else Command()
-        self.command.executable = "llama-server"
+        self.command = Command.from_dict(settings.last_command) if settings.last_command else Command(executable=settings.llama_server_selected or "llama-server")
         self.rows: list[ArgumentRow] = []
         layout = QVBoxLayout(self)
         heading = QHBoxLayout()
@@ -129,8 +128,9 @@ class CommandBuilder(QWidget):
         self._changed()
 
     def add_argument(self) -> None:
-        picker = SearchableFlagPicker(self.catalog, self)
+        picker = SearchableFlagPicker(self.catalog, self.settings.picker_show_advanced, self)
         if picker.exec() and picker.selected:
+            self.settings.picker_show_advanced = picker.show_advanced
             self.add_spec(picker.selected, flag=picker.selected_flag)
 
     def add_spec(self, spec: FlagSpec, values: list[str] | None = None, source_type: str = "manual", flag: str | None = None) -> None:
@@ -141,6 +141,19 @@ class CommandBuilder(QWidget):
         initial_values = values if values is not None else ([] if spec.optional_parameter else [""] * spec.parameter_count)
         self.command.arguments.append(CommandArgument(flag or spec.preferred_name, initial_values, source_type))
         self.rebuild()
+
+    def set_argument(self, canonical_name: str, values: list[str], source_type: str = "preset") -> None:
+        spec = self.catalog.find(canonical_name)
+        if spec is None:
+            return
+        existing = next((argument for argument in self.command.arguments if (current := self.catalog.find(argument.flag)) and current.canonical_name == spec.canonical_name), None)
+        if existing is None:
+            self.command.arguments.append(CommandArgument(spec.preferred_name, list(values), source_type))
+        else:
+            existing.values = list(values)
+            existing.source_type = source_type
+        self.rebuild()
+
     def _ensure_jinja_before_template(self) -> None:
         if self.command.has_flag({"--jinja"}):
             return
@@ -150,16 +163,6 @@ class CommandBuilder(QWidget):
             self.command.arguments.insert(template_index, CommandArgument("--jinja"))
 
     def apply_preset(self, preset: str) -> None:
-        if preset in {"dflash", "dspark"}:
-            draft = self.catalog.find("--spec-draft-model")
-            if draft and not any(self.catalog.find(argument.flag) and self.catalog.find(argument.flag).canonical_name == "--spec-draft-model" for argument in self.command.arguments):
-                source = "dflash" if preset == "dflash" else "dspark"
-                self.command.arguments.append(CommandArgument(draft.preferred_name, [""], "draft_model", {"draft_source": source}))
-            spec = self.catalog.find("--spec-type")
-            if spec:
-                self.command.arguments.append(CommandArgument(spec.preferred_name, [f"draft-{preset}"], "preset"))
-            self.rebuild()
-            return
         lookup = {
             "mmproj": ("--mmproj", [""], "mmproj"),
             "mtp": ("--spec-type", ["draft-mtp"], "preset"),
@@ -167,9 +170,7 @@ class CommandBuilder(QWidget):
             "template": ("--chat-template-file", [""], "template_file"),
         }
         name, values, source = lookup[preset]
-        spec = self.catalog.find(name)
-        if spec:
-            self.add_spec(spec, values, source)
+        self.set_argument(name, values, source_type=source)
 
     def remove_row(self, row: ArgumentRow) -> None:
         self.command.arguments.remove(row.argument)
@@ -204,12 +205,12 @@ class CommandBuilder(QWidget):
         self.benchmark_options.setEnabled(not running)
         self.benchmark_cancel.setEnabled(running)
     def copy_command(self) -> None:
-        QGuiApplication.clipboard().setText(self.command.rendered(self.settings.llama_server_executable or None, vertical=self.preview_vertical.isChecked()))
+        QGuiApplication.clipboard().setText(self.command.rendered(vertical=self.preview_vertical.isChecked()))
 
     def _changed(self, *_args) -> None:
         self.settings.vertical_preview = self.preview_vertical.isChecked()
         self.command.ensure_model_argument()
-        self.preview.setText(self.command.rendered(self.settings.llama_server_executable or None, vertical=self.preview_vertical.isChecked()))
+        self.preview.setText(self.command.rendered(vertical=self.preview_vertical.isChecked()))
         issues = validate_command(self.command, self.catalog)
         if issues:
             rendered = "<br>".join(f"<b>{issue.severity.title()}:</b> {issue.message}" for issue in issues)

@@ -10,6 +10,16 @@ from app.models.flags import FlagSpec
 
 README_URL = "https://raw.githubusercontent.com/ggml-org/llama.cpp/master/tools/server/README.md"
 
+COMMON_FLAG_NAMES = frozenset({
+    "--model", "--ctx-size", "--parallel", "--gpu-layers", "--device", "--split-mode", "--tensor-split", "--main-gpu",
+    "--cpu-moe", "--n-cpu-moe", "--flash-attn", "--cache-type-k", "--cache-type-v", "--fit", "--fit-target", "--fit-ctx",
+    "--threads", "--threads-batch", "--batch-size", "--ubatch-size", "--mmproj", "--no-mmproj-offload", "--image-min-tokens",
+    "--spec-type", "--spec-draft-model", "--cache-type-k-draft", "--cache-type-v-draft", "--spec-draft-n-max", "--spec-draft-p-min",
+    "--spec-ngram-n", "--spec-ngram-min", "--spec-ngram-max", "--host", "--port", "--alias", "--jinja", "--chat-template",
+    "--chat-template-file", "--reasoning-format", "--reasoning-budget", "--temp", "--top-p", "--top-k", "--min-p",
+    "--presence-penalty", "--repeat-penalty", "--cache-ram", "--ctx-checkpoints",
+})
+
 
 class FlagCatalog:
     def __init__(self, specs: list[FlagSpec], source: str = "bundled") -> None:
@@ -152,6 +162,9 @@ class FlagCatalog:
         if not query:
             return self.specs
         return [spec for spec in self.specs if spec.matches(query)]
+
+    def common_specs(self) -> list[FlagSpec]:
+        return [spec for spec in self.specs if spec.canonical_name in COMMON_FLAG_NAMES]
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

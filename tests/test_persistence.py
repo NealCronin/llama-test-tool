@@ -23,3 +23,12 @@ def test_save_restore_and_clear_builder_state(tmp_path, monkeypatch):
     assert not restored_command.model_path().exists()
     restored_command.reset()
     assert [argument.flag for argument in restored_command.arguments] == ["-m"]
+
+
+def test_legacy_draft_folders_migrate_without_manual_server_override(tmp_path, monkeypatch):
+    path = tmp_path / "settings.json"
+    path.write_text('{"mtp_folder": "old-mtp", "dflash_folder": "old-dflash", "llama_server_executable": "ignored.exe"}', encoding="utf-8")
+    monkeypatch.setattr(AppSettings, "path", classmethod(lambda cls: path))
+    restored = AppSettings.load()
+    assert restored.drafters_folder == "old-mtp"
+    assert not hasattr(restored, "llama_server_executable")

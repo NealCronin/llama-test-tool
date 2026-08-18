@@ -60,3 +60,35 @@ def test_malformed_yaml_is_never_overwritten(tmp_path):
     with pytest.raises(LlamaSwapError):
         LlamaSwapService(path).add_model("new", "llama-server -m new.gguf")
     assert path.read_text(encoding="utf-8") == original
+
+
+def test_global_edits_and_model_metadata_preserve_unknown_configuration(tmp_path):
+    path = tmp_path / "config.yaml"
+    path.write_text("""healthCheckTimeout: 600
+logLevel: info
+logToStdout: both
+includeAliasesInList: false
+globalTTL: 0
+unloadTimeout: 30
+futureSetting: preserved
+models:
+  old:
+    cmd: custom-server -m old.gguf
+    futureModelField: preserved
+""", encoding="utf-8")
+    swap = LlamaSwapService(path)
+    swap.update_globals({"globalTTL": 120, "logLevel": "warn"})
+    swap.update_model_metadata("old", {"ttl": -1, "unloadTimeout": 0, "description": "Old model", "capabilities": {"context": 8192}})
+    data = swap.load()
+    assert data["futureSetting"] == "preserved"
+    assert data["models"]["old"]["futureModelField"] == "preserved"
+    assert data["models"]["old"]["ttl"] == -1
+    assert data["models"]["old"]["unloadTimeout"] == 0
+
+
+def test_invalid_managed_global_field_refuses_write(tmp_path):
+    path, swap = service(tmp_path)
+    original = path.read_text(encoding="utf-8")
+    with pytest.raises(LlamaSwapError, match="logLevel"):
+        swap.update_globals({"logLevel": "verbose"})
+    assert path.read_text(encoding="utf-8") == original

@@ -18,10 +18,13 @@ class CommandArgument:
 
     @classmethod
     def from_dict(cls, data: dict) -> "CommandArgument":
+        source_type = str(data.get("source_type", "manual"))
+        metadata = {str(key): str(value) for key, value in data.get("metadata", {}).items()}
+        if source_type == "draft_model":
+            metadata.pop("draft_source", None)
         return cls(
             flag=str(data["flag"]), values=[str(value) for value in data.get("values", [])],
-            source_type=str(data.get("source_type", "manual")),
-            metadata={str(key): str(value) for key, value in data.get("metadata", {}).items()},
+            source_type=source_type, metadata=metadata,
         )
 
 

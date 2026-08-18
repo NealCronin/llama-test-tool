@@ -80,11 +80,13 @@ def test_gpu_layers_accepts_documented_symbolic_values():
     assert not any("integer" in issue.message for issue in issues)
 
 
-def test_draft_source_metadata_migrates_to_stable_identifiers():
-    folders = {"mtp": r"D:\MTP", "dflash": r"D:\DFlash", "dspark": "", "generic": "", "manual": ""}
-    assert ArgumentRow._migrate_draft_source(r"D:\DFlash", folders) == "dflash"
-    assert ArgumentRow._migrate_draft_source("dflash", folders) == "dflash"
-    assert ArgumentRow._migrate_draft_source(r"D:\Other\draft.gguf", folders) == "manual"
+def test_legacy_draft_source_metadata_is_removed_on_restore():
+    argument = CommandArgument.from_dict({
+        "flag": "-md", "values": [r"D:\Drafters\draft.gguf"], "source_type": "draft_model",
+        "metadata": {"draft_source": r"D:\DFlash"},
+    })
+    assert argument.values == [r"D:\Drafters\draft.gguf"]
+    assert argument.metadata == {}
 
 
 def test_representative_structured_argv_preserves_each_value_as_one_token():

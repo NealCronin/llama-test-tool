@@ -5,7 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
+    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
     QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QTabWidget, QVBoxLayout,
     QWidget,
 )
@@ -27,6 +27,7 @@ from app.widgets.memory_options import MemoryTestOptionsDialog
 from app.widgets.memory_results import MemoryResultsDialog
 from app.widgets.benchmark_options import BenchmarkOptionsDialog
 from app.widgets.benchmark_results import BenchmarkResultsDialog
+from app.widgets.guided_presets import ContextKvPresetDialog, CustomMtpPresetDialog, DeviceSplitPresetDialog
 
 
 class SettingsPage(QWidget):
@@ -37,15 +38,14 @@ class SettingsPage(QWidget):
         layout = QVBoxLayout(self)
         self._scanned_folder = ""
         layout.addWidget(QLabel("<h2>Settings</h2>"))
-        layout.addWidget(QLabel("Paths are retained when unavailable so the configuration can be repaired without re-entering it."))
+        layout.addWidget(QLabel("Paths are retained when unavailable so the configuration can be repaired without re-entering them."))
         form = QFormLayout()
         entries = [
             ("llama_cpp_folder", "llama.cpp Folder", True),
-            ("models_folder", "Models folder", True), ("mmproj_folder", "MMProj folder", True),
-            ("mtp_folder", "MTP/draft folder", True), ("dflash_folder", "DFlash folder", True),
-            ("dspark_folder", "DSpark folder", True), ("draft_folder", "Generic draft folder", True),
-            ("template_folder", "Chat template folder", True),
-            ("llama_server_executable", "Manual llama-server override (advanced)", False),
+            ("models_folder", "Models Folder", True),
+            ("mmproj_folder", "MMProj Folder", True),
+            ("drafters_folder", "Drafters Folder", True),
+            ("template_folder", "Chat Template Folder", True),
             ("llama_swap_config", "llama-swap config file", False),
         ]
         for key, label, directory in entries:
@@ -134,21 +134,47 @@ class SettingsPage(QWidget):
         self.window().statusBar().showMessage("Settings saved.", 5_000)
         if isinstance(self.window(), MainWindow):
             self.window().settings_saved()
-
-
 class ModelDialog(QDialog):
-    def __init__(self, suggested_id: str, parent=None) -> None:
+    def __init__(self, suggested_id: str, context_size: str = "", has_mmproj: bool = False, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Add to llama-swap")
         form = QFormLayout(self)
         self.model_id = QLineEdit(suggested_id)
         self.display_name = QLineEdit()
-        form.addRow("Model ID", self.model_id)
-        form.addRow("Display name (optional)", self.display_name)
+        self.description = QLineEdit()
+        self.use_model_name = QLineEdit(suggested_id)
+        self.check_endpoint = QLineEdit("/health")
+        self.inherit_ttl = QCheckBox("Inherit global TTL"); self.inherit_ttl.setChecked(True)
+        self.ttl = QLineEdit(); self.ttl.setEnabled(False)
+        self.inherit_unload = QCheckBox("Inherit global unload timeout"); self.inherit_unload.setChecked(True)
+        self.unload = QLineEdit(); self.unload.setEnabled(False)
+        self.input_text = QCheckBox("Input text"); self.input_text.setChecked(True)
+        self.input_image = QCheckBox("Input image"); self.input_image.setChecked(has_mmproj)
+        self.output_text = QCheckBox("Output text"); self.output_text.setChecked(True)
+        self.tools = QCheckBox("Tools")
+        self.context = QLineEdit(context_size)
+        self.inherit_ttl.toggled.connect(lambda checked: self.ttl.setEnabled(not checked))
+        self.inherit_unload.toggled.connect(lambda checked: self.unload.setEnabled(not checked))
+        for label, widget in (("Model ID", self.model_id), ("Display name", self.display_name), ("Description", self.description), ("useModelName", self.use_model_name), ("checkEndpoint", self.check_endpoint), ("TTL", self.ttl), ("Unload timeout", self.unload), ("Context capability", self.context)):
+            form.addRow(label, widget)
+        form.addRow(self.inherit_ttl); form.addRow(self.inherit_unload)
+        form.addRow(self.input_text); form.addRow(self.input_image); form.addRow(self.output_text); form.addRow(self.tools)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
+        buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject)
         form.addRow(buttons)
+
+    def metadata(self) -> dict[str, object]:
+        try:
+            ttl = -1 if self.inherit_ttl.isChecked() else int(self.ttl.text())
+            unload = 0 if self.inherit_unload.isChecked() else int(self.unload.text())
+            context = int(self.context.text()) if self.context.text().strip() else None
+        except ValueError as error:
+            raise ValueError("TTL, unload timeout, and context capability must be whole numbers.") from error
+        capabilities = {"input": ["text"] if self.input_text.isChecked() else [], "output": ["text"] if self.output_text.isChecked() else []}
+        if self.input_image.isChecked(): capabilities["input"].append("image")
+        if self.tools.isChecked(): capabilities["tools"] = True
+        if context is not None: capabilities["context"] = context
+        return {"description": self.description.text().strip(), "useModelName": self.use_model_name.text().strip() or self.model_id.text().strip(), "checkEndpoint": self.check_endpoint.text().strip() or "/health", "ttl": ttl, "unloadTimeout": unload, "capabilities": capabilities}
 
 
 class MainWindow(QMainWindow):
@@ -202,14 +228,47 @@ class MainWindow(QMainWindow):
         refresh.triggered.connect(self.refresh_catalog)
         catalog_menu.addAction(refresh)
         presets = self.menuBar().addMenu("Presets")
-        for label, key in (("Add MMProj", "mmproj"), ("Built-in MTP", "mtp"), ("DFlash", "dflash"), ("DSpark", "dspark"), ("N-gram Mod", "ngram"), ("Custom Template", "template")):
+        for label, key in (("Add MMProj", "mmproj"), ("Built-in MTP", "mtp"), ("N-gram Mod", "ngram"), ("Custom Template", "template")):
             action = QAction(label, self)
             action.triggered.connect(lambda _, value=key: self.builder.apply_preset(value))
+            presets.addAction(action)
+        for label, handler in (("Context + KV Cache", self.context_kv_preset), ("Device Split", self.device_split_preset), ("Custom MTP / External Drafter", self.custom_mtp_preset)):
+            action = QAction(label, self)
+            action.triggered.connect(handler)
             presets.addAction(action)
 
     def settings_saved(self) -> None:
         self.builder.rebuild()
         self.viewer.refresh()
+
+    def _apply_preset_values(self, values: dict[str, list[str]]) -> None:
+        if "--cpu-moe" in values:
+            self.builder.command.arguments = [argument for argument in self.builder.command.arguments if not (spec := self.catalog.find(argument.flag)) or spec.canonical_name != "--n-cpu-moe"]
+        if "--n-cpu-moe" in values:
+            self.builder.command.arguments = [argument for argument in self.builder.command.arguments if not (spec := self.catalog.find(argument.flag)) or spec.canonical_name != "--cpu-moe"]
+        for name, argument_values in values.items():
+            self.builder.set_argument(name, argument_values)
+
+    def context_kv_preset(self) -> None:
+        dialog = ContextKvPresetDialog(self.catalog, self)
+        if dialog.exec():
+            try:
+                self._apply_preset_values(dialog.values())
+            except ValueError as error:
+                QMessageBox.warning(self, "Context + KV Cache", str(error))
+
+    def device_split_preset(self) -> None:
+        dialog = DeviceSplitPresetDialog(self)
+        if dialog.exec():
+            self._apply_preset_values(dialog.values())
+
+    def custom_mtp_preset(self) -> None:
+        dialog = CustomMtpPresetDialog(self.settings, self.catalog, self)
+        if dialog.exec():
+            try:
+                self._apply_preset_values(dialog.values())
+            except ValueError as error:
+                QMessageBox.warning(self, "Custom MTP / External Drafter", str(error))
 
     def persist_builder(self) -> None:
         self.settings.last_command = self.builder.command.to_dict()
@@ -336,7 +395,7 @@ class MainWindow(QMainWindow):
         port = next((argument for argument in command.arguments if self.catalog.find(argument.flag) and self.catalog.find(argument.flag).canonical_name == "--port"), None)
         if port is None:
             command.arguments.insert(1, CommandArgument("--port", ["${PORT}"], "llama_swap"))
-        return command.rendered_lines("llama-server")
+        return command.rendered_lines()
 
     def add_to_swap(self) -> None:
         if not self.settings.llama_swap_config:
@@ -349,7 +408,9 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Cannot add to llama-swap", "\n".join(errors))
             return
         model_path = self.builder.command.model_path()
-        dialog = ModelDialog(suggested_model_id(str(model_path or "llama-model")), self)
+        context = next((argument.values[0] for argument in self.builder.command.arguments if (spec := self.catalog.find(argument.flag)) and spec.canonical_name == "--ctx-size" and argument.values), "")
+        has_mmproj = any((spec := self.catalog.find(argument.flag)) and spec.canonical_name == "--mmproj" and argument.values and argument.values[0] for argument in self.builder.command.arguments)
+        dialog = ModelDialog(suggested_model_id(str(model_path or "llama-model")), context, has_mmproj, self)
         while dialog.exec():
             model_id = dialog.model_id.text().strip()
             if not model_id:
@@ -357,7 +418,7 @@ class MainWindow(QMainWindow):
                 continue
             service = LlamaSwapService(self.settings.llama_swap_config, self.settings.backup_limit)
             try:
-                service.add_model(model_id, self.swap_command(), dialog.display_name.text().strip())
+                service.add_model(model_id, self.swap_command(), dialog.display_name.text().strip(), dialog.metadata())
             except DuplicateModelError:
                 choice = QMessageBox(dialog)
                 choice.setWindowTitle("Model already exists")

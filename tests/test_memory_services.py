@@ -39,6 +39,18 @@ def test_translation_reports_arguments_skipped_by_the_installed_binary():
     )
 
 
+def test_fit_target_override_preserves_current_fit_context():
+    command = Command(arguments=[CommandArgument("-m", ["model.gguf"]), CommandArgument("-fitt", ["512"]), CommandArgument("-fitc", ["8192"])])
+    translation = translate_fit_params_arguments(command, FlagCatalog(FlagCatalog.fallback_specs()), frozenset({"-m", "-fitt", "-fitc"}), fit_target="1024")
+    assert translation.argv == ("-m", "model.gguf", "-fitc", "8192", "-fitt", "1024")
+
+
+def test_fit_context_override_preserves_current_fit_target():
+    command = Command(arguments=[CommandArgument("-m", ["model.gguf"]), CommandArgument("-fitt", ["512"]), CommandArgument("-fitc", ["8192"])])
+    translation = translate_fit_params_arguments(command, FlagCatalog(FlagCatalog.fallback_specs()), frozenset({"-m", "-fitt", "-fitc"}), fit_context="4096")
+    assert translation.argv == ("-m", "model.gguf", "-fitt", "512", "-fitc", "4096")
+
+
 def test_parser_handles_prefixed_single_device_and_host_rows():
     output = "\n".join((
         HEADER,

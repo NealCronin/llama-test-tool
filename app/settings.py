@@ -12,19 +12,16 @@ from platformdirs import user_config_dir
 class AppSettings:
     models_folder: str = ""
     mmproj_folder: str = ""
-    mtp_folder: str = ""
-    dflash_folder: str = ""
-    dspark_folder: str = ""
-    draft_folder: str = ""
+    drafters_folder: str = ""
     template_folder: str = ""
     llama_cpp_folder: str = ""
     llama_server_selected: str = ""
     llama_fit_params_executable: str = ""
     llama_bench_executable: str = ""
-    llama_server_executable: str = ""
     llama_swap_config: str = ""
     memory_fit_target: str = ""
     memory_fit_context: str = ""
+    picker_show_advanced: bool = False
     benchmark_prompt_tokens: int = 512
     benchmark_generation_tokens: int = 128
     benchmark_repetitions: int = 5
@@ -46,11 +43,12 @@ class AppSettings:
     def load(cls) -> "AppSettings":
         try:
             data = json.loads(cls.path().read_text(encoding="utf-8"))
+            if not data.get("drafters_folder"):
+                data["drafters_folder"] = next((str(data[key]) for key in ("mtp_folder", "dflash_folder", "dspark_folder", "draft_folder") if data.get(key)), "")
             valid = {key: value for key, value in data.items() if key in cls.__dataclass_fields__}
             return cls(**valid)
         except (OSError, json.JSONDecodeError, TypeError):
             return cls()
-
     def save(self) -> None:
         path = self.path()
         temporary = path.with_suffix(".tmp")
@@ -61,10 +59,7 @@ class AppSettings:
         return {
             "Models folder": self.models_folder,
             "MMProj folder": self.mmproj_folder,
-            "MTP/draft folder": self.mtp_folder,
-            "DFlash folder": self.dflash_folder,
-            "DSpark folder": self.dspark_folder,
-            "Generic draft folder": self.draft_folder,
+            "Drafters folder": self.drafters_folder,
             "Chat template folder": self.template_folder,
             "llama.cpp Folder": self.llama_cpp_folder,
             "Detected llama-server": self.llama_server_selected,

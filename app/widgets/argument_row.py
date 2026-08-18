@@ -143,77 +143,7 @@ class ArgumentRow(QWidget):
         self.value_widgets.append(combo)
 
     def _draft_editor(self, layout: QHBoxLayout) -> None:
-        source = QComboBox()
-        sources = (
-            ("MTP/draft", "mtp", self.settings.mtp_folder),
-            ("DFlash", "dflash", self.settings.dflash_folder),
-            ("DSpark", "dspark", self.settings.dspark_folder),
-            ("Generic draft", "generic", self.settings.draft_folder),
-            ("Manual", "manual", ""),
-        )
-        folders = {identifier: folder for _label, identifier, folder in sources}
-        for label, identifier, _folder in sources:
-            source.addItem(label, identifier)
-        saved = self._migrate_draft_source(self.argument.metadata.get("draft_source", ""), folders)
-        source.setCurrentIndex(max(0, source.findData(saved)))
-        self.argument.metadata["draft_source"] = saved
-        files = QComboBox()
-        files.setEditable(True)
-        files.setMinimumContentsLength(34)
-        current = self.argument.values[0] if self.argument.values else ""
-        self._populate_draft_files(files, folders[source.currentData()], current)
-        source.currentIndexChanged.connect(lambda: self._change_draft_source(files, source, folders))
-        files.currentIndexChanged.connect(self._sync_folder_value)
-        layout.addWidget(QLabel("Source:"))
-        layout.addWidget(source)
-        layout.addWidget(files, 1)
-        browse = QPushButton("Browse…")
-        browse.clicked.connect(lambda: self._browse_draft_file(files, source))
-        layout.addWidget(browse)
-        self.value_widgets.extend([files, source])
-
-    @staticmethod
-    def _migrate_draft_source(saved: str, folders: dict[str, str]) -> str:
-        if saved in folders:
-            return saved
-        if saved:
-            for identifier, folder in folders.items():
-                if folder and Path(saved) == Path(folder):
-                    return identifier
-        return "manual"
-
-    def _change_draft_source(self, files: QComboBox, source: QComboBox, folders: dict[str, str]) -> None:
-        self.argument.values = [""]
-        self.argument.metadata["draft_source"] = source.currentData() or "manual"
-        self._populate_draft_files(files, folders[source.currentData()], "")
-        self.changed.emit()
-
-    def _browse_draft_file(self, files: QComboBox, source: QComboBox) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Choose draft model", files.currentData() or "", "All files (*)")
-        if not path:
-            return
-        source.setCurrentIndex(source.findData("manual"))
-        index = files.findData(path)
-        if index < 0:
-            files.addItem(Path(path).name, path)
-            index = files.count() - 1
-        files.setCurrentIndex(index)
-        self.argument.values = [path]
-        self.argument.metadata["draft_source"] = "manual"
-        self.changed.emit()
-
-    def _populate_draft_files(self, combo: QComboBox, folder: str, current: str) -> None:
-        combo.blockSignals(True)
-        combo.clear()
-        combo.addItem("Select draft model…", "")
-        for path in scan_gguf_models(folder):
-            combo.addItem(path.name, str(path))
-        index = combo.findData(current)
-        if current and index < 0:
-            combo.addItem(f"⚠ Missing: {Path(current).name}", current)
-            index = combo.count() - 1
-        combo.setCurrentIndex(max(0, index))
-        combo.blockSignals(False)
+        self._folder_combo(layout, self.settings.drafters_folder, scan_gguf_models, "Select drafter…", "draft_model")
 
     def _template_editor(self, layout: QHBoxLayout) -> None:
         combo = QComboBox()
@@ -287,10 +217,6 @@ class ArgumentRow(QWidget):
         self.argument.values = [combo.currentData() or combo.currentText()]
         self.changed.emit()
 
-    def _sync_draft_source(self, *_args) -> None:
-        source = self.value_widgets[1]
-        self.argument.metadata["draft_source"] = source.currentData() or "manual"
-        self.changed.emit()
 
     def _sync_values(self, *_args) -> None:
         values: list[str] = []

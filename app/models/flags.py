@@ -27,7 +27,9 @@ class FlagSpec:
             "--model": "-m", "--mmproj": "-mm", "--spec-draft-model": "-md",
             "--gpu-layers": "-ngl", "--ctx-size": "-c", "--batch-size": "-b",
             "--ubatch-size": "-ub", "--parallel": "-np", "--flash-attn": "-fa",
-            "--split-mode": "-sm", "--tensor-split": "-ts",
+            "--split-mode": "-sm", "--tensor-split": "-ts", "--device": "-dev",
+            "--main-gpu": "-mg", "--cpu-moe": "-cmoe", "--n-cpu-moe": "-ncmoe",
+            "--cache-type-k": "-ctk", "--cache-type-v": "-ctv",
         }
         candidate = preferred.get(self.canonical_name, self.canonical_name)
         return candidate if candidate in self.selectable_aliases else self.selectable_aliases[0]

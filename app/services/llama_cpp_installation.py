@@ -60,12 +60,8 @@ class LlamaCppInstallationService:
             DetectedTool("llama-fit-params", tuple(sorted(candidates["llama-fit-params"], key=cls._sort_key))),
             DetectedTool("llama-bench", tuple(sorted(candidates["llama-bench"], key=cls._sort_key))),
         )
-
     @classmethod
     def active_server(cls, settings) -> str:
-        manual = Path(settings.llama_server_executable) if settings.llama_server_executable else None
-        if manual and manual.is_file():
-            return str(manual)
         return cls._active_discovered(settings.llama_server_selected, settings.llama_cpp_folder, "llama-server")
 
     @classmethod
