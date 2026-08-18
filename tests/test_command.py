@@ -1,6 +1,8 @@
 from app.models.command import Command, CommandArgument
 from app.services.command_parser import parse_command
 from app.services.flag_catalog import FlagCatalog
+from app.services.validation import validate_command
+from app.widgets.argument_row import ArgumentRow
 
 
 def catalog() -> FlagCatalog:
@@ -54,3 +56,47 @@ def test_shell_syntax_uses_raw_mode():
     result = parse_command("llama-server -m model.gguf | tee output.log", catalog())
     assert result.command is None
     assert "shell syntax" in result.raw_reason
+
+def test_optional_value_flag_consumes_only_a_plain_following_value():
+    result = parse_command("llama-server -m model.gguf -fa -c 4096", catalog())
+    assert result.raw_reason is None
+    assert result.command.arguments[1] == CommandArgument("-fa", [])
+    assert result.command.arguments[2] == CommandArgument("-c", ["4096"])
+
+
+def test_import_keeps_negative_flag_spelling():
+    result = parse_command("llama-server -m model.gguf --no-jinja", catalog())
+    assert result.raw_reason is None
+    assert result.command.arguments[1].flag == "--no-jinja"
+
+def test_gpu_layers_accepts_documented_symbolic_values():
+    from app.models.flags import FlagSpec
+
+    gpu = FlagSpec("--gpu-layers", ("-ngl", "--gpu-layers"), "GPU layers", 1, ("N",), choices=("auto", "all"), value_type="integer_or_choices")
+    model = FlagSpec("--model", ("-m", "--model"), "model", 1, ("FILE",))
+    catalog_with_gpu = FlagCatalog([model, gpu])
+    command = Command(arguments=[CommandArgument("-m", ["missing.gguf"]), CommandArgument("-ngl", ["all"])])
+    issues = validate_command(command, catalog_with_gpu)
+    assert not any("integer" in issue.message for issue in issues)
+
+
+def test_draft_source_metadata_migrates_to_stable_identifiers():
+    folders = {"mtp": r"D:\MTP", "dflash": r"D:\DFlash", "dspark": "", "generic": "", "manual": ""}
+    assert ArgumentRow._migrate_draft_source(r"D:\DFlash", folders) == "dflash"
+    assert ArgumentRow._migrate_draft_source("dflash", folders) == "dflash"
+    assert ArgumentRow._migrate_draft_source(r"D:\Other\draft.gguf", folders) == "manual"
+
+
+def test_representative_structured_argv_preserves_each_value_as_one_token():
+    command = Command(arguments=[
+        CommandArgument("-m", ["model.gguf"]),
+        CommandArgument("-dev", ["CUDA0,Vulkan1"]),
+        CommandArgument("-ts", ["2,1"]),
+        CommandArgument("-fitt", ["1024,2048"]),
+        CommandArgument("-ot", ["blk.*=CPU"]),
+        CommandArgument("-ngl", ["all"]),
+    ])
+    assert command.argv("llama-server") == [
+        "llama-server", "-m", "model.gguf", "-dev", "CUDA0,Vulkan1",
+        "-ts", "2,1", "-fitt", "1024,2048", "-ot", "blk.*=CPU", "-ngl", "all",
+    ]

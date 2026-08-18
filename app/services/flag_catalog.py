@@ -30,11 +30,11 @@ class FlagCatalog:
         return [
             FlagSpec("--model", ("-m", "--model"), "model path to load", 1, ("FNAME",), special_editor="model"),
             FlagSpec("--ctx-size", ("-c", "--ctx-size"), "size of the prompt context", 1, ("N",), value_type="integer"),
-            FlagSpec("--flash-attn", ("-fa", "--flash-attn"), "set Flash Attention use", 1, ("on|off|auto",), choices=("on", "off", "auto")),
+            FlagSpec("--flash-attn", ("-fa", "--flash-attn"), "set Flash Attention use", 1, ("on|off|auto",), optional_parameter=True, choices=("on", "off", "auto")),
             FlagSpec("--mmproj", ("-mm", "--mmproj"), "path to a multimodal projector file", 1, ("FILE",), special_editor="mmproj"),
             FlagSpec("--spec-draft-model", ("--spec-draft-model", "-md", "--model-draft"), "draft model for speculative decoding", 1, ("FNAME",), special_editor="draft_model"),
             FlagSpec("--spec-type", ("--spec-type",), "comma-separated list of speculative decoding types", 1, ("TYPE",), choices=("none", "draft-mtp", "draft-dflash", "draft-dspark", "ngram-mod"), special_editor="spec_type"),
-            FlagSpec("--jinja", ("--jinja", "--no-jinja"), "whether to use jinja template engine", 0),
+            FlagSpec("--jinja", ("--jinja", "--no-jinja"), "whether to use jinja template engine", 0, positive_aliases=("--jinja",), negative_aliases=("--no-jinja",)),
             FlagSpec("--chat-template", ("--chat-template",), "set custom jinja chat template", 1, ("JINJA_TEMPLATE",), special_editor="chat_template"),
             FlagSpec("--chat-template-file", ("--chat-template-file",), "set custom jinja chat template file", 1, ("JINJA_TEMPLATE_FILE",), special_editor="template_file"),
         ]
@@ -53,10 +53,11 @@ class FlagCatalog:
             description = cls._clean_description(match.group("description"))
             trailing = argument[argument.rfind(aliases[-1]) + len(aliases[-1]):].strip()
             parameters, optional = cls._parameters(trailing)
+            canonical = next((name for name in aliases if name.startswith("--") and not name.startswith("--no-")), aliases[0])
             choices = cls._choices(trailing, description)
-            if not parameters and re.fullmatch(r"[\w.-]+(?:,[\w.-]+)+", trailing):
-                parameters, choices = ["VALUE"], trailing.split(",")
-            canonical = next((name for name in aliases if name.startswith("--")), aliases[0])
+            if canonical == "--gpu-layers":
+                choices = list(dict.fromkeys([*choices, "auto", "all"]))
+            positive_aliases, negative_aliases = cls._polarity(aliases)
             special = cls._special_editor(canonical)
             specs.append(FlagSpec(
                 canonical_name=canonical,
@@ -66,9 +67,11 @@ class FlagCatalog:
                 parameter_names=tuple(parameters),
                 optional_parameter=optional,
                 choices=tuple(choices),
-                value_type=cls._value_type(parameters, description),
+                value_type=cls._value_type(canonical, parameters, choices, description),
                 repeatable=any(word in description.casefold() for word in ("multiple", "comma-separated values", "add a control vector")),
                 special_editor=special,
+                positive_aliases=positive_aliases,
+                negative_aliases=negative_aliases,
             ))
         # The README table deliberately has one row per logical flag. Deduplicate in case sections repeat it.
         unique = {spec.canonical_name: spec for spec in specs}
@@ -83,43 +86,55 @@ class FlagCatalog:
 
     @staticmethod
     def _parameters(trailing: str) -> tuple[list[str], bool]:
-        optional = bool(re.search(r"\[[^]]+\]", trailing))
-        chunks = re.findall(r"(?:<[^>]+>|\[[^]]+\]|\{[^}]+\}|[A-Z][A-Z0-9_,-]*)", trailing)
-        values: list[str] = []
-        for chunk in chunks:
-            raw = chunk.strip("<>[]{}")
-            if raw and not re.fullmatch(r"[a-z0-9_,|-]+", raw):
-                values.extend(raw.replace(",", " ").split())
-            elif raw and (chunk.startswith(("[", "{", "<")) or raw.isupper()):
-                values.append(raw)
-        return values, optional
+        """The README's suffix denotes argv tokens; punctuation stays inside one token."""
+        if not trailing:
+            return [], False
+        optional = bool(re.fullmatch(r"\[[^\]]+\]", trailing))
+        # Bracketed, braced, and angle grammars describe one argv value even when
+        # they contain commas, pipes, nested brackets, equals signs, or spaces.
+        if trailing.startswith(("<", "[", "{")):
+            return [trailing.strip("<>[]{}") or "VALUE"], optional
+        # Current server documentation has one genuine two-value option:
+        # --control-vector-layer-range START END. Other bare grammars, including
+        # lo-hi and N0,N1,..., occupy one command-line token.
+        tokens = trailing.split()
+        return tokens, False
 
     @staticmethod
     def _choices(trailing: str, description: str) -> list[str]:
-        sources = [trailing, description]
         choices: list[str] = []
-        for source in sources:
-            for enclosed in re.findall(r"(?:\[|\{|\()([^\]\)}]+)(?:\]|\}|\))", source):
-                candidates = re.split(r"[|,]", enclosed.replace("\\|", "|"))
-                if 1 < len(candidates) <= 30 and all(re.fullmatch(r"[\w.+-]+", item.strip()) for item in candidates):
-                    choices.extend(item.strip() for item in candidates)
-            allowed = re.search(r"allowed values:\s*([^.(]+)", source, re.I)
+        grammar = trailing.strip()
+        if grammar.startswith("{") and grammar.endswith("}"):
+            choices = grammar[1:-1].split(",")
+        elif grammar.startswith("[") and grammar.endswith("]"):
+            choices = grammar[1:-1].replace("\\|", "|").split("|")
+        elif re.fullmatch(r"[a-z][a-z0-9_-]*(?:,[a-z][a-z0-9_-]*)+", grammar):
+            choices = grammar.split(",")
+        else:
+            allowed = re.search(r"allowed values:\s*([a-z0-9_+.-]+(?:\s*,\s*[a-z0-9_+.-]+)+)", description, re.I)
             if allowed:
-                choices.extend(item.strip() for item in allowed.group(1).split(",") if item.strip())
-            templates = re.search(r"list of built-in templates:\s*([a-z0-9_, -]+)", source, re.I)
+                choices = allowed.group(1).split(",")
+            templates = re.search(r"list of built-in templates:\s*([a-z0-9_, -]+)", description, re.I)
             if templates:
-                choices.extend(item.strip() for item in templates.group(1).split(",") if item.strip())
-        return list(dict.fromkeys(choices))
+                choices = templates.group(1).split(",")
+        return list(dict.fromkeys(choice.strip() for choice in choices if re.fullmatch(r"[\w.+-]+", choice.strip())))
 
     @staticmethod
-    def _value_type(parameters: list[str], description: str) -> str:
+    def _value_type(canonical: str, parameters: list[str], choices: list[str], description: str) -> str:
         if not parameters:
             return "boolean"
+        if canonical == "--gpu-layers":
+            return "integer_or_choices"
         if all(parameter in {"N", "INDEX", "PORT", "SEED", "SECONDS", "MiB"} for parameter in parameters):
             return "integer"
         if any("path" in word.casefold() for word in (" ".join(parameters), description)):
             return "path"
         return "string"
+
+    @staticmethod
+    def _polarity(aliases: tuple[str, ...]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        negative = tuple(alias for alias in aliases if alias.startswith(("--no-", "-no-")))
+        return tuple(alias for alias in aliases if alias not in negative), negative
 
     @staticmethod
     def _special_editor(canonical: str) -> str | None:

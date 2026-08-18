@@ -50,6 +50,8 @@ class MemoryTestResult:
     fit_exit_code: int | None = None
     error: str = ""
     requested_argv: tuple[str, ...] = ()
+    skipped_arguments: tuple[str, ...] = ()
+    sidecars: tuple[tuple[str, str], ...] = ()
 
     @property
     def raw_output(self) -> str:
@@ -61,9 +63,19 @@ class MemoryTestResult:
 
     @property
     def was_fitted(self) -> bool:
-        requested = _normalized_values(self.requested_argv)
+        return self.fit_status == "fitted"
+
+    @property
+    def fit_status(self) -> str:
         fitted = _normalized_values(self.fitted_arguments)
-        return any(name in requested and requested[name] != value for name, value in fitted.items())
+        if not fitted:
+            return "unknown"
+        requested = _normalized_values(self.requested_argv)
+        if any(name not in requested or requested[name] != value for name, value in fitted.items()):
+            return "fitted"
+        if "no changes needed" in self.raw_output.casefold():
+            return "unchanged"
+        return "returned"
 
 
 def _normalized_values(argv: tuple[str, ...]) -> dict[str, str]:
@@ -71,6 +83,7 @@ def _normalized_values(argv: tuple[str, ...]) -> dict[str, str]:
         "-c": "ctx-size", "--ctx-size": "ctx-size",
         "-ngl": "gpu-layers", "--gpu-layers": "gpu-layers", "--n-gpu-layers": "gpu-layers",
         "-ts": "tensor-split", "--tensor-split": "tensor-split",
+        "-ot": "override-tensor", "--override-tensor": "override-tensor",
     }
     values: dict[str, str] = {}
     for index, token in enumerate(argv[:-1]):

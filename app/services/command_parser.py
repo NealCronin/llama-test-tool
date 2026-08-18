@@ -40,9 +40,9 @@ def parse_command(text: str, catalog: FlagCatalog) -> ParseResult:
         if spec is None:
             return ParseResult(None, f"Unknown flag {token!r}; preserving it requires Raw Command Mode.")
         count = spec.parameter_count
-        if spec.optional_parameter and index + 1 < len(tokens) and not tokens[index + 1].startswith("-"):
-            count = 1
-        if index + count >= len(tokens):
+        if spec.optional_parameter:
+            count = 1 if index + 1 < len(tokens) and not tokens[index + 1].startswith("-") else 0
+        if count and index + count >= len(tokens):
             return ParseResult(None, f"{token} has incomplete values.")
         values = tokens[index + 1:index + 1 + count]
         command.arguments.append(CommandArgument(token, values, _source_type(spec.canonical_name)))

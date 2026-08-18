@@ -15,7 +15,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-h",
+        "--help",
+        "--usage"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--version",
@@ -29,7 +35,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--version"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cache-list",
@@ -44,7 +54,12 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-cl",
+        "--cache-list"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--completion-bash",
@@ -58,7 +73,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--completion-bash"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--threads",
@@ -75,7 +94,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-t",
+        "--threads"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--threads-batch",
@@ -92,7 +116,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-tb",
+        "--threads-batch"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cpu-mask",
@@ -109,7 +138,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-C",
+        "--cpu-mask"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cpu-range",
@@ -118,13 +152,20 @@
         "--cpu-range"
       ],
       "description": "range of CPUs for affinity. Complements --cpu-mask",
-      "parameter_count": 0,
-      "parameter_names": [],
+      "parameter_count": 1,
+      "parameter_names": [
+        "lo-hi"
+      ],
       "optional_parameter": false,
       "choices": [],
-      "value_type": "boolean",
+      "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-Cr",
+        "--cpu-range"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cpu-strict",
@@ -140,7 +181,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--cpu-strict"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--prio",
@@ -156,7 +201,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--prio"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--poll",
@@ -172,7 +221,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--poll"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cpu-mask-batch",
@@ -189,7 +242,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-Cb",
+        "--cpu-mask-batch"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cpu-range-batch",
@@ -198,13 +256,20 @@
         "--cpu-range-batch"
       ],
       "description": "ranges of CPUs for affinity. Complements --cpu-mask-batch",
-      "parameter_count": 0,
-      "parameter_names": [],
+      "parameter_count": 1,
+      "parameter_names": [
+        "lo-hi"
+      ],
       "optional_parameter": false,
       "choices": [],
-      "value_type": "boolean",
+      "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-Crb",
+        "--cpu-range-batch"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cpu-strict-batch",
@@ -220,7 +285,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--cpu-strict-batch"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--prio-batch",
@@ -236,7 +305,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--prio-batch"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--poll-batch",
@@ -252,7 +325,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--poll-batch"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--ctx-size",
@@ -269,7 +346,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-c",
+        "--ctx-size"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--predict",
@@ -287,7 +369,13 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-n",
+        "--predict",
+        "--n-predict"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--batch-size",
@@ -304,7 +392,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-b",
+        "--batch-size"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--ubatch-size",
@@ -321,7 +414,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-ub",
+        "--ubatch-size"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--keep",
@@ -337,7 +435,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--keep"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--swa-full",
@@ -351,7 +453,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--swa-full"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--flash-attn",
@@ -372,7 +478,12 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-fa",
+        "--flash-attn"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--perf",
@@ -387,7 +498,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--perf"
+      ],
+      "negative_aliases": [
+        "--no-perf"
+      ]
     },
     {
       "canonical_name": "--escape",
@@ -403,7 +520,14 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-e",
+        "--escape"
+      ],
+      "negative_aliases": [
+        "--no-escape"
+      ]
     },
     {
       "canonical_name": "--rope-scaling",
@@ -423,7 +547,11 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--rope-scaling"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--rope-scale",
@@ -439,7 +567,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--rope-scale"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--rope-freq-base",
@@ -455,7 +587,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--rope-freq-base"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--rope-freq-scale",
@@ -471,7 +607,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--rope-freq-scale"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--yarn-orig-ctx",
@@ -487,7 +627,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--yarn-orig-ctx"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--yarn-ext-factor",
@@ -503,7 +647,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--yarn-ext-factor"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--yarn-attn-factor",
@@ -519,7 +667,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--yarn-attn-factor"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--yarn-beta-slow",
@@ -535,7 +687,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--yarn-beta-slow"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--yarn-beta-fast",
@@ -551,7 +707,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--yarn-beta-fast"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--kv-offload",
@@ -568,7 +728,15 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-kvo",
+        "--kv-offload",
+        "-nkvo"
+      ],
+      "negative_aliases": [
+        "--no-kv-offload"
+      ]
     },
     {
       "canonical_name": "--repack",
@@ -584,7 +752,14 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--repack",
+        "-nr"
+      ],
+      "negative_aliases": [
+        "--no-repack"
+      ]
     },
     {
       "canonical_name": "--no-host",
@@ -598,7 +773,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [],
+      "negative_aliases": [
+        "--no-host"
+      ]
     },
     {
       "canonical_name": "--cache-type-k",
@@ -625,7 +804,12 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-ctk",
+        "--cache-type-k"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cache-type-v",
@@ -652,7 +836,12 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-ctv",
+        "--cache-type-v"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--defrag-thold",
@@ -669,7 +858,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-dt",
+        "--defrag-thold"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--rpc",
@@ -685,7 +879,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--rpc"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--mlock",
@@ -699,7 +897,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--mlock"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--mmap",
@@ -714,7 +916,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--mmap"
+      ],
+      "negative_aliases": [
+        "--no-mmap"
+      ]
     },
     {
       "canonical_name": "--direct-io",
@@ -731,7 +939,15 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-dio",
+        "--direct-io",
+        "-ndio"
+      ],
+      "negative_aliases": [
+        "--no-direct-io"
+      ]
     },
     {
       "canonical_name": "--load-mode",
@@ -748,7 +964,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-lm",
+        "--load-mode"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--numa",
@@ -764,7 +985,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--numa"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--device",
@@ -773,17 +998,20 @@
         "--device"
       ],
       "description": "comma-separated list of devices to use for offloading (none = don't offload) use --list-devices to see a list of available devices (env: LLAMA_ARG_DEVICE)",
-      "parameter_count": 3,
+      "parameter_count": 1,
       "parameter_names": [
-        "dev1",
-        "dev2",
-        ".."
+        "dev1,dev2,.."
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-dev",
+        "--device"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--list-devices",
@@ -797,7 +1025,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--list-devices"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--override-tensor",
@@ -806,19 +1038,20 @@
         "--override-tensor"
       ],
       "description": "override tensor buffer type (env: LLAMA_ARG_OVERRIDE_TENSOR)",
-      "parameter_count": 5,
+      "parameter_count": 1,
       "parameter_names": [
-        "tensor",
-        "name",
-        "pattern",
-        "buffer",
-        "type"
+        "tensor name pattern>=<buffer type>,..."
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-ot",
+        "--override-tensor"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cpu-moe",
@@ -833,7 +1066,12 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-cmoe",
+        "--cpu-moe"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--n-cpu-moe",
@@ -850,7 +1088,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-ncmoe",
+        "--n-cpu-moe"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--gpu-layers",
@@ -865,10 +1108,19 @@
         "N"
       ],
       "optional_parameter": false,
-      "choices": [],
-      "value_type": "integer",
+      "choices": [
+        "auto",
+        "all"
+      ],
+      "value_type": "integer_or_choices",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-ngl",
+        "--gpu-layers",
+        "--n-gpu-layers"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--split-mode",
@@ -886,13 +1138,16 @@
         "none",
         "layer",
         "row",
-        "tensor",
-        "parallelized",
-        "EXPERIMENTAL"
+        "tensor"
       ],
       "value_type": "string",
       "repeatable": true,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-sm",
+        "--split-mode"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--tensor-split",
@@ -901,17 +1156,20 @@
         "--tensor-split"
       ],
       "description": "fraction of the model to offload to each GPU, comma-separated list of proportions, e.g. 3,1 (env: LLAMA_ARG_TENSOR_SPLIT)",
-      "parameter_count": 3,
+      "parameter_count": 1,
       "parameter_names": [
-        "N0",
-        "N1",
-        "N2"
+        "N0,N1,N2,..."
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-ts",
+        "--tensor-split"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--main-gpu",
@@ -928,7 +1186,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-mg",
+        "--main-gpu"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--fit",
@@ -948,7 +1211,12 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-fit",
+        "--fit"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--fit-target",
@@ -957,20 +1225,20 @@
         "--fit-target"
       ],
       "description": "target margin per device for --fit, comma-separated list of values, single value is broadcast across all devices, default: 1024 (env: LLAMA_ARG_FIT_TARGET)",
-      "parameter_count": 6,
+      "parameter_count": 1,
       "parameter_names": [
-        "M",
-        "B0",
-        "M",
-        "B1",
-        "M",
-        "B2"
+        "MiB0,MiB1,MiB2,..."
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-fitt",
+        "--fit-target"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--fit-ctx",
@@ -987,7 +1255,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-fitc",
+        "--fit-ctx"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--check-tensors",
@@ -1001,7 +1274,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--check-tensors"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--override-kv",
@@ -1009,17 +1286,19 @@
         "--override-kv"
       ],
       "description": "advanced option to override model metadata by key. to specify multiple overrides, either use comma-separated values. types: int, float, bool, str. example: --override-kv tokenizer.ggml.add_bos_token=bool:false,tokenizer.ggml.add_eos_token=bool:false",
-      "parameter_count": 3,
+      "parameter_count": 1,
       "parameter_names": [
-        "KEY",
-        "TYPE",
-        "VALUE"
+        "KEY=TYPE:VALUE,..."
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": true,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--override-kv"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--op-offload",
@@ -1034,7 +1313,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--op-offload"
+      ],
+      "negative_aliases": [
+        "--no-op-offload"
+      ]
     },
     {
       "canonical_name": "--lora",
@@ -1050,7 +1335,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": true,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--lora"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--lora-scaled",
@@ -1058,16 +1347,19 @@
         "--lora-scaled"
       ],
       "description": "path to LoRA adapter with user defined scaling (format: FNAME:SCALE,...) note: use comma-separated values",
-      "parameter_count": 2,
+      "parameter_count": 1,
       "parameter_names": [
-        "FNAME",
-        "SCALE"
+        "FNAME:SCALE,..."
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "path",
       "repeatable": true,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--lora-scaled"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--control-vector",
@@ -1083,7 +1375,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": true,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--control-vector"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--control-vector-scaled",
@@ -1091,16 +1387,19 @@
         "--control-vector-scaled"
       ],
       "description": "add a control vector with user defined scaling SCALE note: use comma-separated values (format: FNAME:SCALE,...)",
-      "parameter_count": 2,
+      "parameter_count": 1,
       "parameter_names": [
-        "FNAME",
-        "SCALE"
+        "FNAME:SCALE,..."
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": true,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--control-vector-scaled"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--control-vector-layer-range",
@@ -1117,7 +1416,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--control-vector-layer-range"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--model",
@@ -1134,7 +1437,12 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": "model"
+      "special_editor": "model",
+      "positive_aliases": [
+        "-m",
+        "--model"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--model-url",
@@ -1151,7 +1459,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-mu",
+        "--model-url"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--docker-repo",
@@ -1160,17 +1473,20 @@
         "--docker-repo"
       ],
       "description": "Docker Hub model repository. repo is optional, default to ai/. quant is optional, default to :latest. example: gemma3 (default: unused) (env: LLAMA_ARG_DOCKER_REPO)",
-      "parameter_count": 3,
+      "parameter_count": 1,
       "parameter_names": [
-        "repo>/",
-        "model",
-        ":quant"
+        "repo>/]<model>[:quant"
       ],
-      "optional_parameter": true,
+      "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-dr",
+        "--docker-repo"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--hf-repo",
@@ -1180,17 +1496,21 @@
         "--hf-repo"
       ],
       "description": "Hugging Face model repository; quant is optional, case-insensitive, default to Q4_K_M, or falls back to the first file in the repo if Q4_K_M doesn't exist. mmproj is also downloaded automatically if available. to disable, add --no-mmproj example: ggml-org/GLM-4.7-Flash-GGUF:Q4_K_M (default: unused) (env: LLAMA_ARG_HF_REPO)",
-      "parameter_count": 3,
+      "parameter_count": 1,
       "parameter_names": [
-        "user",
-        "model",
-        ":quant"
+        "user>/<model>[:quant"
       ],
-      "optional_parameter": true,
+      "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-hf",
+        "-hfr",
+        "--hf-repo"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--hf-file",
@@ -1207,7 +1527,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-hff",
+        "--hf-file"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--hf-token",
@@ -1224,7 +1549,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-hft",
+        "--hf-token"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--log-disable",
@@ -1238,7 +1568,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--log-disable"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--log-file",
@@ -1254,7 +1588,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--log-file"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--log-colors",
@@ -1274,7 +1612,11 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--log-colors"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--verbose",
@@ -1290,7 +1632,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-v",
+        "--verbose",
+        "--log-verbose"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--offline",
@@ -1304,7 +1652,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--offline"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--verbosity",
@@ -1322,7 +1674,13 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-lv",
+        "--verbosity",
+        "--log-verbosity"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--log-prefix",
@@ -1337,7 +1695,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--log-prefix"
+      ],
+      "negative_aliases": [
+        "--no-log-prefix"
+      ]
     },
     {
       "canonical_name": "--log-timestamps",
@@ -1352,7 +1716,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--log-timestamps"
+      ],
+      "negative_aliases": [
+        "--no-log-timestamps"
+      ]
     },
     {
       "canonical_name": "--spec-draft-type-k",
@@ -1380,7 +1750,13 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-type-k",
+        "-ctkd",
+        "--cache-type-k-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-type-v",
@@ -1408,7 +1784,13 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-type-v",
+        "-ctvd",
+        "--cache-type-v-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--samplers",
@@ -1424,7 +1806,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--samplers"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--seed",
@@ -1441,7 +1827,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-s",
+        "--seed"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--sampler-seq",
@@ -1458,7 +1849,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--sampler-seq",
+        "--sampling-seq"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--ignore-eos",
@@ -1472,7 +1868,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--ignore-eos"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--temp",
@@ -1489,7 +1889,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--temp",
+        "--temperature"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--top-k",
@@ -1505,7 +1910,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--top-k"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--top-p",
@@ -1521,7 +1930,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--top-p"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--min-p",
@@ -1537,7 +1950,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--min-p"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--top-nsigma",
@@ -1554,7 +1971,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--top-nsigma",
+        "--top-n-sigma"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--xtc-probability",
@@ -1570,7 +1992,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--xtc-probability"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--xtc-threshold",
@@ -1586,7 +2012,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--xtc-threshold"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--typical",
@@ -1603,7 +2033,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--typical",
+        "--typical-p"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--repeat-last-n",
@@ -1619,7 +2054,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--repeat-last-n"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--repeat-penalty",
@@ -1635,7 +2074,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--repeat-penalty"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--presence-penalty",
@@ -1651,7 +2094,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--presence-penalty"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--frequency-penalty",
@@ -1667,7 +2114,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--frequency-penalty"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--dry-multiplier",
@@ -1683,7 +2134,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--dry-multiplier"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--dry-base",
@@ -1699,7 +2154,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--dry-base"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--dry-allowed-length",
@@ -1715,7 +2174,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--dry-allowed-length"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--dry-penalty-last-n",
@@ -1731,7 +2194,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--dry-penalty-last-n"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--dry-sequence-breaker",
@@ -1747,7 +2214,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--dry-sequence-breaker"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--adaptive-target",
@@ -1763,7 +2234,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--adaptive-target"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--adaptive-decay",
@@ -1779,7 +2254,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--adaptive-decay"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--dynatemp-range",
@@ -1795,7 +2274,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--dynatemp-range"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--dynatemp-exp",
@@ -1811,7 +2294,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--dynatemp-exp"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--mirostat",
@@ -1827,7 +2314,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--mirostat"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--mirostat-lr",
@@ -1843,7 +2334,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--mirostat-lr"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--mirostat-ent",
@@ -1859,7 +2354,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--mirostat-ent"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--logit-bias",
@@ -1868,16 +2367,20 @@
         "--logit-bias"
       ],
       "description": "modifies the likelihood of token appearing in the completion, i.e. `--logit-bias 15043+1` to increase likelihood of token ' Hello', or `--logit-bias 15043-1` to decrease likelihood of token ' Hello'",
-      "parameter_count": 2,
+      "parameter_count": 1,
       "parameter_names": [
-        "TOKEN_ID",
-        "BIAS"
+        "TOKEN_ID(+/-)BIAS"
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-l",
+        "--logit-bias"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--grammar",
@@ -1893,7 +2396,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--grammar"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--grammar-file",
@@ -1909,7 +2416,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--grammar-file"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--json-schema",
@@ -1926,7 +2437,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-j",
+        "--json-schema"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--json-schema-file",
@@ -1943,7 +2459,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-jf",
+        "--json-schema-file"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--backend-sampling",
@@ -1958,7 +2479,12 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-bs",
+        "--backend-sampling"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--lookup-cache-static",
@@ -1975,7 +2501,12 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-lcs",
+        "--lookup-cache-static"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--lookup-cache-dynamic",
@@ -1992,7 +2523,12 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-lcd",
+        "--lookup-cache-dynamic"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--ctx-checkpoints",
@@ -2010,7 +2546,13 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-ctxcp",
+        "--ctx-checkpoints",
+        "--swa-checkpoints"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--checkpoint-min-step",
@@ -2027,7 +2569,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-cms",
+        "--checkpoint-min-step"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cache-ram",
@@ -2044,7 +2591,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-cram",
+        "--cache-ram"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--kv-unified",
@@ -2061,7 +2613,15 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-kvu",
+        "--kv-unified"
+      ],
+      "negative_aliases": [
+        "-no-kvu",
+        "--no-kv-unified"
+      ]
     },
     {
       "canonical_name": "--cache-idle-slots",
@@ -2076,7 +2636,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--cache-idle-slots"
+      ],
+      "negative_aliases": [
+        "--no-cache-idle-slots"
+      ]
     },
     {
       "canonical_name": "--context-shift",
@@ -2091,7 +2657,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--context-shift"
+      ],
+      "negative_aliases": [
+        "--no-context-shift"
+      ]
     },
     {
       "canonical_name": "--reverse-prompt",
@@ -2108,7 +2680,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-r",
+        "--reverse-prompt"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--special",
@@ -2123,7 +2700,12 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-sp",
+        "--special"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--warmup",
@@ -2138,7 +2720,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--warmup"
+      ],
+      "negative_aliases": [
+        "--no-warmup"
+      ]
     },
     {
       "canonical_name": "--spm-infill",
@@ -2152,7 +2740,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spm-infill"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--pooling",
@@ -2174,7 +2766,11 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--pooling"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--parallel",
@@ -2191,7 +2787,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-np",
+        "--parallel"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cont-batching",
@@ -2208,7 +2809,15 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-cb",
+        "--cont-batching",
+        "-nocb"
+      ],
+      "negative_aliases": [
+        "--no-cont-batching"
+      ]
     },
     {
       "canonical_name": "--mmproj",
@@ -2225,7 +2834,12 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": "mmproj"
+      "special_editor": "mmproj",
+      "positive_aliases": [
+        "-mm",
+        "--mmproj"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--mmproj-url",
@@ -2242,7 +2856,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-mmu",
+        "--mmproj-url"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--mmproj-auto",
@@ -2258,7 +2877,14 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--mmproj-auto"
+      ],
+      "negative_aliases": [
+        "--no-mmproj",
+        "--no-mmproj-auto"
+      ]
     },
     {
       "canonical_name": "--mmproj-offload",
@@ -2273,7 +2899,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--mmproj-offload"
+      ],
+      "negative_aliases": [
+        "--no-mmproj-offload"
+      ]
     },
     {
       "canonical_name": "--image-min-tokens",
@@ -2289,7 +2921,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--image-min-tokens"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--image-max-tokens",
@@ -2305,7 +2941,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--image-max-tokens"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--mtmd-batch-max-tokens",
@@ -2321,7 +2961,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--mtmd-batch-max-tokens"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--alias",
@@ -2338,7 +2982,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-a",
+        "--alias"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--tags",
@@ -2354,7 +3003,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--tags"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--embd-normalize",
@@ -2370,7 +3023,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--embd-normalize"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--host",
@@ -2386,7 +3043,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--host"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--port",
@@ -2402,7 +3063,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--port"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--reuse-port",
@@ -2416,7 +3081,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": true,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--reuse-port"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--path",
@@ -2432,7 +3101,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--path"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cors-origins",
@@ -2448,7 +3121,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--cors-origins"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cors-methods",
@@ -2464,7 +3141,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--cors-methods"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cors-headers",
@@ -2480,7 +3161,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--cors-headers"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cors-credentials",
@@ -2495,7 +3180,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--cors-credentials"
+      ],
+      "negative_aliases": [
+        "--no-cors-credentials"
+      ]
     },
     {
       "canonical_name": "--api-prefix",
@@ -2511,7 +3202,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--api-prefix"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--ui-config",
@@ -2528,7 +3223,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--ui-config",
+        "--webui-config"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--ui-config-file",
@@ -2545,7 +3245,12 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--ui-config-file",
+        "--webui-config-file"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--ui-mcp-proxy",
@@ -2562,7 +3267,15 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--ui-mcp-proxy",
+        "--webui-mcp-proxy"
+      ],
+      "negative_aliases": [
+        "--no-ui-mcp-proxy",
+        "--no-webui-mcp-proxy"
+      ]
     },
     {
       "canonical_name": "--tools",
@@ -2570,16 +3283,19 @@
         "--tools"
       ],
       "description": "experimental: whether to enable server tools for AI agents - do not enable in untrusted environments (default: no tools) specify \"all\" to enable all tools available tools: read_file, file_glob_search, grep_search, exec_shell_command, write_file, edit_file, get_info note: for security reasons, this will limit --cors-origins to localhost by default (env: LLAMA_ARG_TOOLS)",
-      "parameter_count": 2,
+      "parameter_count": 1,
       "parameter_names": [
-        "TOOL1",
-        "TOOL2"
+        "TOOL1,TOOL2,..."
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--tools"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--tools-runtime",
@@ -2595,7 +3311,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--tools-runtime"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--mcp-servers-config",
@@ -2611,7 +3331,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--mcp-servers-config"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--mcp-servers-json",
@@ -2627,7 +3351,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--mcp-servers-json"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--agent",
@@ -2644,7 +3372,15 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-ag",
+        "--agent"
+      ],
+      "negative_aliases": [
+        "-no-ag",
+        "--no-agent"
+      ]
     },
     {
       "canonical_name": "--ui",
@@ -2661,7 +3397,15 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--ui",
+        "--webui"
+      ],
+      "negative_aliases": [
+        "--no-ui",
+        "--no-webui"
+      ]
     },
     {
       "canonical_name": "--embedding",
@@ -2676,7 +3420,12 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--embedding",
+        "--embeddings"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--rerank",
@@ -2691,7 +3440,12 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--rerank",
+        "--reranking"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--api-key",
@@ -2707,7 +3461,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": true,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--api-key"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--api-key-file",
@@ -2723,7 +3481,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--api-key-file"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--ssl-key-file",
@@ -2739,7 +3501,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--ssl-key-file"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--ssl-cert-file",
@@ -2755,7 +3521,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--ssl-cert-file"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--chat-template-kwargs",
@@ -2771,7 +3541,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--chat-template-kwargs"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--timeout",
@@ -2788,7 +3562,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-to",
+        "--timeout"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--sse-ping-interval",
@@ -2804,7 +3583,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--sse-ping-interval"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--threads-http",
@@ -2820,7 +3603,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--threads-http"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--cache-prompt",
@@ -2835,7 +3622,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--cache-prompt"
+      ],
+      "negative_aliases": [
+        "--no-cache-prompt"
+      ]
     },
     {
       "canonical_name": "--cache-reuse",
@@ -2851,7 +3644,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--cache-reuse"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--metrics",
@@ -2865,7 +3662,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--metrics"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--props",
@@ -2879,7 +3680,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--props"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--slots",
@@ -2894,7 +3699,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--slots"
+      ],
+      "negative_aliases": [
+        "--no-slots"
+      ]
     },
     {
       "canonical_name": "--slot-save-path",
@@ -2910,7 +3721,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--slot-save-path"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--media-path",
@@ -2926,7 +3741,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--media-path"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--models-dir",
@@ -2942,7 +3761,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--models-dir"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--models-preset",
@@ -2958,7 +3781,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--models-preset"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--models-max",
@@ -2974,7 +3801,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--models-max"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--models-autoload",
@@ -2989,7 +3820,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--models-autoload"
+      ],
+      "negative_aliases": [
+        "--no-models-autoload"
+      ]
     },
     {
       "canonical_name": "--jinja",
@@ -3004,7 +3841,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--jinja"
+      ],
+      "negative_aliases": [
+        "--no-jinja"
+      ]
     },
     {
       "canonical_name": "--reasoning-format",
@@ -3020,7 +3863,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--reasoning-format"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--reasoning",
@@ -3041,7 +3888,12 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-rea",
+        "--reasoning"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--reasoning-effort",
@@ -3057,7 +3909,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--reasoning-effort"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--reasoning-budget",
@@ -3073,7 +3929,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--reasoning-budget"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--reasoning-budget-message",
@@ -3089,7 +3949,11 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--reasoning-budget-message"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--reasoning-preserve",
@@ -3104,7 +3968,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--reasoning-preserve"
+      ],
+      "negative_aliases": [
+        "--no-reasoning-preserve"
+      ]
     },
     {
       "canonical_name": "--chat-template",
@@ -3142,7 +4012,11 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": "chat_template"
+      "special_editor": "chat_template",
+      "positive_aliases": [
+        "--chat-template"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--chat-template-file",
@@ -3180,7 +4054,11 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": "template_file"
+      "special_editor": "template_file",
+      "positive_aliases": [
+        "--chat-template-file"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--skip-chat-parsing",
@@ -3195,7 +4073,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--skip-chat-parsing"
+      ],
+      "negative_aliases": [
+        "--no-skip-chat-parsing"
+      ]
     },
     {
       "canonical_name": "--prefill-assistant",
@@ -3210,7 +4094,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--prefill-assistant"
+      ],
+      "negative_aliases": [
+        "--no-prefill-assistant"
+      ]
     },
     {
       "canonical_name": "--slot-prompt-similarity",
@@ -3227,7 +4117,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "-sps",
+        "--slot-prompt-similarity"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--lora-init-without-apply",
@@ -3241,7 +4136,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--lora-init-without-apply"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--sleep-idle-seconds",
@@ -3257,7 +4156,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--sleep-idle-seconds"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--log-prompts-dir",
@@ -3273,7 +4176,11 @@
       "choices": [],
       "value_type": "path",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--log-prompts-dir"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-hf",
@@ -3284,17 +4191,22 @@
         "--hf-repo-draft"
       ],
       "description": "Same as --hf-repo, but for the draft model (default: unused) (env: LLAMA_ARG_SPEC_DRAFT_HF_REPO)",
-      "parameter_count": 3,
+      "parameter_count": 1,
       "parameter_names": [
-        "user",
-        "model",
-        ":quant"
+        "user>/<model>[:quant"
       ],
-      "optional_parameter": true,
+      "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-hf",
+        "-hfd",
+        "-hfrd",
+        "--hf-repo-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-threads",
@@ -3312,7 +4224,13 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-threads",
+        "-td",
+        "--threads-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-threads-batch",
@@ -3330,7 +4248,13 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-threads-batch",
+        "-tbd",
+        "--threads-batch-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-cpu-mask",
@@ -3348,7 +4272,13 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-cpu-mask",
+        "-Cd",
+        "--cpu-mask-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-cpu-range",
@@ -3358,13 +4288,21 @@
         "--cpu-range-draft"
       ],
       "description": "Ranges of CPUs for affinity. Complements --cpu-mask-draft",
-      "parameter_count": 0,
-      "parameter_names": [],
+      "parameter_count": 1,
+      "parameter_names": [
+        "lo-hi"
+      ],
       "optional_parameter": false,
       "choices": [],
-      "value_type": "boolean",
+      "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-cpu-range",
+        "-Crd",
+        "--cpu-range-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-cpu-strict",
@@ -3381,7 +4319,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-cpu-strict",
+        "--cpu-strict-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-prio",
@@ -3398,7 +4341,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-prio",
+        "--prio-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-poll",
@@ -3415,7 +4363,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-poll",
+        "--poll-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-cpu-mask-batch",
@@ -3433,7 +4386,13 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-cpu-mask-batch",
+        "-Cbd",
+        "--cpu-mask-batch-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-cpu-strict-batch",
@@ -3450,7 +4409,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-cpu-strict-batch",
+        "--cpu-strict-batch-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-prio-batch",
@@ -3467,7 +4431,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-prio-batch",
+        "--prio-batch-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-poll-batch",
@@ -3484,7 +4453,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-poll-batch",
+        "--poll-batch-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-override-tensor",
@@ -3494,19 +4468,21 @@
         "--override-tensor-draft"
       ],
       "description": "override tensor buffer type for draft model",
-      "parameter_count": 5,
+      "parameter_count": 1,
       "parameter_names": [
-        "tensor",
-        "name",
-        "pattern",
-        "buffer",
-        "type"
+        "tensor name pattern>=<buffer type>,..."
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-override-tensor",
+        "-otd",
+        "--override-tensor-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-cpu-moe",
@@ -3522,7 +4498,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-cpu-moe",
+        "-cmoed",
+        "--cpu-moe-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-n-cpu-moe",
@@ -3541,7 +4523,14 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-n-cpu-moe",
+        "--spec-draft-ncmoe",
+        "-ncmoed",
+        "--n-cpu-moe-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-n-max",
@@ -3557,7 +4546,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-n-max"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-n-min",
@@ -3573,7 +4566,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-n-min"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-p-split",
@@ -3590,7 +4587,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-p-split",
+        "--draft-p-split"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-p-min",
@@ -3607,7 +4609,12 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-p-min",
+        "--draft-p-min"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-backend-sampling",
@@ -3622,7 +4629,13 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-backend-sampling"
+      ],
+      "negative_aliases": [
+        "--no-spec-draft-backend-sampling"
+      ]
     },
     {
       "canonical_name": "--spec-draft-device",
@@ -3632,17 +4645,21 @@
         "--device-draft"
       ],
       "description": "comma-separated list of devices to use for offloading the draft model (none = don't offload) use --list-devices to see a list of available devices",
-      "parameter_count": 3,
+      "parameter_count": 1,
       "parameter_names": [
-        "dev1",
-        "dev2",
-        ".."
+        "dev1,dev2,.."
       ],
       "optional_parameter": false,
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-device",
+        "-devd",
+        "--device-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-ngl",
@@ -3661,7 +4678,14 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-draft-ngl",
+        "-ngld",
+        "--gpu-layers-draft",
+        "--n-gpu-layers-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-draft-model",
@@ -3679,7 +4703,13 @@
       "choices": [],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": "draft_model"
+      "special_editor": "draft_model",
+      "positive_aliases": [
+        "--spec-draft-model",
+        "-md",
+        "--model-draft"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-type",
@@ -3689,7 +4719,7 @@
       "description": "comma-separated list of types of speculative decoding to use (default: none)  (env: LLAMA_ARG_SPEC_TYPE)",
       "parameter_count": 1,
       "parameter_names": [
-        "VALUE"
+        "none,draft-simple,draft-eagle3,draft-mtp,draft-dflash,draft-dspark,ngram-simple,ngram-map-k,ngram-map-k4v,ngram-mod,ngram-cache"
       ],
       "optional_parameter": false,
       "choices": [
@@ -3707,7 +4737,11 @@
       ],
       "value_type": "string",
       "repeatable": false,
-      "special_editor": "spec_type"
+      "special_editor": "spec_type",
+      "positive_aliases": [
+        "--spec-type"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-mod-n-min",
@@ -3723,7 +4757,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-mod-n-min"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-mod-n-max",
@@ -3739,7 +4777,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-mod-n-max"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-mod-n-match",
@@ -3755,7 +4797,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-mod-n-match"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-simple-size-n",
@@ -3771,7 +4817,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-simple-size-n"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-simple-size-m",
@@ -3787,7 +4837,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-simple-size-m"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-simple-min-hits",
@@ -3803,7 +4857,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-simple-min-hits"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-map-k-size-n",
@@ -3819,7 +4877,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-map-k-size-n"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-map-k-size-m",
@@ -3835,7 +4897,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-map-k-size-m"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-map-k-min-hits",
@@ -3851,7 +4917,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-map-k-min-hits"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-map-k4v-size-n",
@@ -3867,7 +4937,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-map-k4v-size-n"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-map-k4v-size-m",
@@ -3883,7 +4957,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-map-k4v-size-m"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-map-k4v-min-hits",
@@ -3899,7 +4977,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-map-k4v-min-hits"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--draft",
@@ -3917,7 +4999,13 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--draft",
+        "--draft-n",
+        "--draft-max"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--draft-min",
@@ -3934,7 +5022,12 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--draft-min",
+        "--draft-n-min"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-size-n",
@@ -3950,7 +5043,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-size-n"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-size-m",
@@ -3966,7 +5063,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-size-m"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-ngram-min-hits",
@@ -3982,7 +5083,11 @@
       "choices": [],
       "value_type": "integer",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-ngram-min-hits"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--embd-gemma-default",
@@ -3996,7 +5101,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--embd-gemma-default"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--fim-qwen-1",
@@ -4004,13 +5113,19 @@
         "--fim-qwen-1"
       ],
       "description": "use default Qwen 2.5 Coder 1.5B (note: can download weights from the internet)",
-      "parameter_count": 0,
-      "parameter_names": [],
+      "parameter_count": 1,
+      "parameter_names": [
+        ".5b-default"
+      ],
       "optional_parameter": false,
       "choices": [],
-      "value_type": "boolean",
+      "value_type": "string",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--fim-qwen-1"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--fim-qwen-3b-default",
@@ -4024,7 +5139,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--fim-qwen-3b-default"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--fim-qwen-7b-default",
@@ -4038,7 +5157,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--fim-qwen-7b-default"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--fim-qwen-7b-spec",
@@ -4052,7 +5175,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--fim-qwen-7b-spec"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--fim-qwen-14b-spec",
@@ -4066,7 +5193,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--fim-qwen-14b-spec"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--fim-qwen-30b-default",
@@ -4080,7 +5211,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--fim-qwen-30b-default"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--gpt-oss-20b-default",
@@ -4094,7 +5229,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--gpt-oss-20b-default"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--gpt-oss-120b-default",
@@ -4108,7 +5247,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--gpt-oss-120b-default"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--vision-gemma-4b-default",
@@ -4122,7 +5265,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--vision-gemma-4b-default"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--vision-gemma-12b-default",
@@ -4136,7 +5283,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--vision-gemma-12b-default"
+      ],
+      "negative_aliases": []
     },
     {
       "canonical_name": "--spec-default",
@@ -4150,7 +5301,11 @@
       "choices": [],
       "value_type": "boolean",
       "repeatable": false,
-      "special_editor": null
+      "special_editor": null,
+      "positive_aliases": [
+        "--spec-default"
+      ],
+      "negative_aliases": []
     }
   ]
 }

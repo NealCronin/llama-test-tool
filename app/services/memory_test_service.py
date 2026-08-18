@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QProcess, QTimer, Signal
@@ -15,25 +16,40 @@ _FIT_TARGET = ("--fit-target", "-fitt")
 _FIT_CONTEXT = ("--fit-ctx", "-fitc")
 
 
-def build_fit_params_argv(
+@dataclass(frozen=True)
+class FitArgumentTranslation:
+    argv: tuple[str, ...]
+    skipped_arguments: tuple[str, ...]
+
+
+def translate_fit_params_arguments(
     command: Command,
     catalog: FlagCatalog,
     supported_flags: frozenset[str],
     *,
     fit_target: str = "",
     fit_context: str = "",
-) -> tuple[str, ...]:
-    """Translate structured server arguments to aliases accepted by this fit utility build."""
+) -> FitArgumentTranslation:
+    """Translate structured server arguments and explicitly record unsupported inputs."""
     result: list[str] = []
+    skipped: list[str] = []
     skipped_controls = set(_FIT_PRINT)
     overridden = set(_FIT_TARGET + _FIT_CONTEXT) if (fit_target or fit_context) else set()
     for argument in command.arguments:
-        if argument.source_type == "model_default_template" or argument.flag in skipped_controls or argument.flag in overridden:
+        if argument.source_type == "model_default_template":
+            skipped.append(f"{argument.flag}: model-default template has no argv value")
+            continue
+        if argument.flag in skipped_controls:
+            skipped.append(f"{argument.flag}: controlled by the memory test")
+            continue
+        if argument.flag in overridden:
+            skipped.append(f"{argument.flag}: overridden by Memory Test Options")
             continue
         spec = catalog.find(argument.flag)
         aliases = spec.aliases if spec else (argument.flag,)
         selected = next((alias for alias in (argument.flag, *aliases) if alias in supported_flags), None)
         if selected is None:
+            skipped.append(f"{argument.flag}: unsupported by this llama-fit-params build")
             continue
         result.append(selected)
         result.extend(argument.values)
@@ -45,7 +61,18 @@ def build_fit_params_argv(
         flag = _supported_alias(_FIT_CONTEXT, supported_flags)
         if flag:
             result.extend((flag, fit_context))
-    return tuple(result)
+    return FitArgumentTranslation(tuple(result), tuple(skipped))
+
+
+def build_fit_params_argv(
+    command: Command,
+    catalog: FlagCatalog,
+    supported_flags: frozenset[str],
+    *,
+    fit_target: str = "",
+    fit_context: str = "",
+) -> tuple[str, ...]:
+    return translate_fit_params_arguments(command, catalog, supported_flags, fit_target=fit_target, fit_context=fit_context).argv
 
 
 def _supported_alias(aliases: tuple[str, ...], supported: frozenset[str]) -> str | None:
@@ -74,6 +101,8 @@ class MemoryTestService(QObject):
         self._base_argv: tuple[str, ...] = ()
         self._help_stdout = ""
         self._help_stderr = ""
+        self._skipped_arguments: tuple[str, ...] = ()
+        self._sidecars: tuple[tuple[str, str], ...] = ()
         self._fit_target = ""
         self._fit_context = ""
         self._estimate_stdout = ""
@@ -94,6 +123,9 @@ class MemoryTestService(QObject):
         if not binary or not Path(binary).is_file():
             raise RuntimeError("llama-fit-params was not found. Select a llama.cpp Folder or choose an active fit binary in Settings.")
         self._binary, self._catalog, self._command = binary, catalog, command.copy()
+        self._sidecars = self._find_sidecars(self._command, catalog)
+        self._skipped_arguments = ()
+        self._base_argv = ()
         self._help_stdout = self._help_stderr = ""
         self._estimate_stdout = self._estimate_stderr = self._fit_stdout = self._fit_stderr = ""
         self._estimate_code = self._fit_code = None
@@ -112,14 +144,15 @@ class MemoryTestService(QObject):
         self.state_changed.emit("Cancelling memory test…")
         self.process.terminate()
         QTimer.singleShot(2_000, self._kill_if_running)
-
     def _kill_if_running(self) -> None:
         if self.running:
             self.process.kill()
 
     def _start_estimate(self, supported: frozenset[str], fit_target: str, fit_context: str) -> None:
         assert self._command is not None and self._catalog is not None
-        self._base_argv = build_fit_params_argv(self._command, self._catalog, supported, fit_target=fit_target, fit_context=fit_context)
+        translation = translate_fit_params_arguments(self._command, self._catalog, supported, fit_target=fit_target, fit_context=fit_context)
+        self._base_argv = translation.argv
+        self._skipped_arguments = translation.skipped_arguments
         if "-m" not in self._base_argv and "--model" not in self._base_argv:
             self._complete_error("Select a model before running a memory test.")
             return
@@ -184,6 +217,8 @@ class MemoryTestService(QObject):
         self._complete(MemoryTestResult(
             breakdown=breakdown,
             fitted_arguments=fitted,
+            skipped_arguments=self._skipped_arguments,
+            sidecars=self._sidecars,
             raw_stdout=self._estimate_stdout + "\n" + self._fit_stdout,
             raw_stderr=self._estimate_stderr + "\n" + self._fit_stderr,
             exit_code=self._estimate_code,
@@ -209,7 +244,21 @@ class MemoryTestService(QObject):
             fit_exit_code=self._fit_code,
             error=error,
             requested_argv=self._base_argv,
+            skipped_arguments=self._skipped_arguments,
+            sidecars=self._sidecars,
         ))
+
+    @staticmethod
+    def _find_sidecars(command: Command, catalog: FlagCatalog) -> tuple[tuple[str, str], ...]:
+        labels = {"--mmproj": "MMProj", "--spec-draft-model": "Draft model", "--model-draft": "Draft model"}
+        return tuple(
+            (labels[spec.canonical_name], argument.values[0])
+            for argument in command.arguments
+            if (spec := catalog.find(argument.flag)) is not None
+            and spec.canonical_name in labels
+            and argument.values
+            and argument.values[0]
+        )
 
     def _complete(self, result: MemoryTestResult) -> None:
         self._stage = ""

@@ -34,18 +34,20 @@ def validate_command(command: Command, catalog: FlagCatalog) -> list[ValidationI
             continue
         if len(argument.values) < spec.parameter_count and not spec.optional_parameter:
             issues.append(ValidationIssue("error", f"{argument.flag} requires {spec.parameter_count} value(s)."))
-        if spec.choices and argument.values:
+        if spec.choices and argument.values and spec.value_type != "integer_or_choices":
             values = argument.values[0].split(",") if spec.special_editor == "spec_type" else argument.values
             invalid = [value for value in values if value and value not in spec.choices]
             if invalid:
                 issues.append(ValidationIssue("error", f"{argument.flag} has unsupported value(s): {', '.join(invalid)}."))
-        if spec.value_type == "integer":
+        if spec.value_type in {"integer", "integer_or_choices"}:
             for value in argument.values:
-                if value and value != "${PORT}":
-                    try:
-                        int(value)
-                    except ValueError:
-                        issues.append(ValidationIssue("error", f"{argument.flag} requires an integer, not {value!r}."))
+                if not value or value == "${PORT}" or (spec.value_type == "integer_or_choices" and value in spec.choices):
+                    continue
+                try:
+                    int(value)
+                except ValueError:
+                    expected = "an integer or one of " + ", ".join(spec.choices) if spec.value_type == "integer_or_choices" else "an integer"
+                    issues.append(ValidationIssue("error", f"{argument.flag} requires {expected}, not {value!r}."))
         if spec.canonical_name in seen and not spec.repeatable:
             issues.append(ValidationIssue("warning", f"{argument.flag} duplicates {seen[spec.canonical_name]}."))
         seen[spec.canonical_name] = argument.flag

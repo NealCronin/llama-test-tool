@@ -3,7 +3,7 @@ from app.models.memory import MemoryBreakdown
 from app.services.flag_catalog import FlagCatalog
 from app.models.memory import MemoryTestResult
 from app.services.memory_parser import MemoryBreakdownParser, parse_fitted_arguments, parse_supported_flags
-from app.services.memory_test_service import build_fit_params_argv
+from app.services.memory_test_service import build_fit_params_argv, translate_fit_params_arguments
 
 
 HEADER = "prefix: | memory breakdown [MiB] | total free self model context compute unaccounted |"
@@ -22,6 +22,21 @@ def test_translates_current_command_using_installed_supported_aliases():
     argv = build_fit_params_argv(command, catalog, supported)
     assert argv == ("-m", "model.gguf", "-c", "131072", "-ctk", "q8_0", "-ctv", "q8_0", "-ngl", "all")
     assert "--port" not in argv and "--host" not in argv
+
+
+def test_translation_reports_arguments_skipped_by_the_installed_binary():
+    catalog = FlagCatalog(FlagCatalog.fallback_specs())
+    command = Command(arguments=[
+        CommandArgument("-m", ["model.gguf"]),
+        CommandArgument("--port", ["8080"]),
+        CommandArgument("-fa", ["on"]),
+    ])
+    translation = translate_fit_params_arguments(command, catalog, frozenset({"-m"}))
+    assert translation.argv == ("-m", "model.gguf")
+    assert translation.skipped_arguments == (
+        "--port: unsupported by this llama-fit-params build",
+        "-fa: unsupported by this llama-fit-params build",
+    )
 
 
 def test_parser_handles_prefixed_single_device_and_host_rows():
@@ -74,3 +89,25 @@ def test_failed_result_never_reports_success_with_missing_breakdown():
 def test_supported_flags_come_from_help_text():
     flags = parse_supported_flags("-c, --ctx-size N\n-fitp, --fit-print [on|off]\n")
     assert {"-c", "--ctx-size", "-fitp", "--fit-print"} <= flags
+
+
+def test_fit_status_distinguishes_explicit_changes_from_unknown_defaults():
+    changed = MemoryTestResult(
+        breakdown=MemoryBreakdown(()),
+        fitted_arguments=("-c", "65536"),
+        requested_argv=("-m", "model.gguf"),
+    )
+    returned = MemoryTestResult(
+        breakdown=MemoryBreakdown(()),
+        fitted_arguments=("-c", "65536"),
+        requested_argv=("-m", "model.gguf", "-c", "65536"),
+    )
+    unchanged = MemoryTestResult(
+        breakdown=MemoryBreakdown(()),
+        fitted_arguments=("-c", "65536"),
+        requested_argv=("-m", "model.gguf", "-c", "65536"),
+        raw_stdout="no changes needed",
+    )
+    assert changed.fit_status == "fitted"
+    assert returned.fit_status == "returned"
+    assert unchanged.fit_status == "unchanged"

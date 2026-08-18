@@ -12,6 +12,7 @@ class SearchableFlagPicker(QDialog):
         super().__init__(parent)
         self.catalog = catalog
         self.selected: FlagSpec | None = None
+        self.selected_flag: str | None = None
         self.setWindowTitle("Add llama.cpp argument")
         self.resize(700, 440)
         layout = QVBoxLayout(self)
@@ -30,16 +31,23 @@ class SearchableFlagPicker(QDialog):
         self.populate()
 
     def populate(self) -> None:
-        current = self.results.currentItem().data(Qt.ItemDataRole.UserRole) if self.results.currentItem() else None
+        current = self.results.currentItem().data(Qt.ItemDataRole.UserRole + 1) if self.results.currentItem() else None
         self.results.clear()
-        for spec in self.catalog.search(self.search.text())[:100]:
+        query = self.search.text().strip()
+        entries: list[tuple[FlagSpec, str]] = []
+        for spec in self.catalog.search(query)[:100]:
+            flags = (spec.preferred_name, *spec.negative_aliases) if spec.negative_aliases else (spec.preferred_name,)
+            entries.extend((spec, flag) for flag in dict.fromkeys(flags))
+        entries.sort(key=lambda entry: (entry[1] != query, entry[1]))
+        for spec, flag in entries:
             suffix = " ".join(spec.parameter_names)
-            text = f"{', '.join(spec.aliases)} {suffix}\n{spec.description}".strip()
+            text = f"{flag} {suffix}\n{spec.description}".strip()
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, spec)
+            item.setData(Qt.ItemDataRole.UserRole + 1, flag)
             item.setToolTip(spec.description)
             self.results.addItem(item)
-            if spec.canonical_name == current:
+            if flag == current:
                 self.results.setCurrentItem(item)
         if self.results.count() and self.results.currentItem() is None:
             self.results.setCurrentRow(0)
@@ -49,6 +57,7 @@ class SearchableFlagPicker(QDialog):
         if item is None:
             return
         self.selected = item.data(Qt.ItemDataRole.UserRole)
+        self.selected_flag = item.data(Qt.ItemDataRole.UserRole + 1)
         super().accept()
 
     def showEvent(self, event) -> None:

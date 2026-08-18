@@ -33,11 +33,18 @@ class MemoryResultsDialog(QDialog):
             layout.addWidget(QLabel(f"<h2>Memory test failed</h2><p>{result.error or 'llama-fit-params did not return usable results.'}</p><p>Estimate exit: {result.exit_code}; fit exit: {result.fit_exit_code}</p>"))
         else:
             layout.addWidget(QLabel("<h2>Memory Estimate</h2>"))
-            status = "⚠ Configuration required fitting" if result.was_fitted else "✓ Configuration fits"
-            layout.addWidget(QLabel(status))
+            statuses = {
+                "fitted": "Fitted parameters differ from the requested command.",
+                "unchanged": "llama-fit-params reported no fitting changes.",
+                "returned": "llama-fit-params returned parameters; their effect versus defaults is unknown.",
+                "unknown": "No safely parseable fitted parameter line was returned.",
+            }
+            layout.addWidget(QLabel(statuses[result.fit_status]))
             self._add_summary(layout)
+            self._add_scope(layout)
             self._add_devices(layout)
             self._add_fit_result(layout)
+            self._add_details(layout)
         self._add_raw_output(layout)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
@@ -61,6 +68,14 @@ class MemoryResultsDialog(QDialog):
             form.addRow(label, value)
         layout.addWidget(panel)
 
+    def _add_scope(self, layout: QVBoxLayout) -> None:
+        if not self.result.sidecars:
+            return
+        sidecars = "<br>".join(f"{label}: <code>{path}</code>" for label, path in self.result.sidecars)
+        layout.addWidget(QLabel(
+            "<b>Estimate scope: main model memory only.</b> Additional sidecar memory may not be included:<br>" + sidecars
+        ))
+
     def _add_devices(self, layout: QVBoxLayout) -> None:
         assert self.result.breakdown is not None
         layout.addWidget(QLabel("<h3>Memory Breakdown</h3>"))
@@ -79,14 +94,26 @@ class MemoryResultsDialog(QDialog):
     def _add_fit_result(self, layout: QVBoxLayout) -> None:
         layout.addWidget(QLabel("<h3>Fit Result</h3>"))
         if self.result.fitted_arguments:
-            requested = " ".join(self.result.requested_argv)
             fitted = " ".join(self.result.fitted_arguments)
-            layout.addWidget(QLabel(f"Requested: <code>{requested}</code><br>Fitted arguments: <code>{fitted}</code>"))
-            apply = QPushButton("Apply Fitted Parameters")
-            apply.clicked.connect(lambda: self.apply_requested.emit(self.result.fitted_arguments))
-            layout.addWidget(apply)
+            layout.addWidget(QLabel(f"Fitted arguments: <code>{fitted}</code>"))
+            if self.result.fit_status == "fitted":
+                apply = QPushButton("Apply Fitted Parameters")
+                apply.clicked.connect(lambda: self.apply_requested.emit(self.result.fitted_arguments))
+                layout.addWidget(apply)
         else:
             layout.addWidget(QLabel("No safely parseable fitted argument line was returned."))
+
+    def _add_details(self, layout: QVBoxLayout) -> None:
+        toggle = QToolButton(text="Show Memory Test Details", checkable=True)
+        details = QPlainTextEdit(readOnly=True)
+        sent = " ".join(self.result.requested_argv) or "(none)"
+        skipped = "\n".join(self.result.skipped_arguments) or "(none)"
+        details.setPlainText(f"Arguments sent to llama-fit-params:\n{sent}\n\nArguments skipped:\n{skipped}")
+        details.setVisible(False)
+        toggle.toggled.connect(details.setVisible)
+        toggle.toggled.connect(lambda checked: toggle.setText("Hide Memory Test Details" if checked else "Show Memory Test Details"))
+        layout.addWidget(toggle)
+        layout.addWidget(details)
 
     def _add_raw_output(self, layout: QVBoxLayout) -> None:
         toggle = QToolButton(text="Show Raw llama-fit-params Output", checkable=True)

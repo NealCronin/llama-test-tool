@@ -105,7 +105,7 @@ class CommandBuilder(QWidget):
             row = self.rows.pop()
             self.arguments_layout.removeWidget(row)
             row.deleteLater()
-        for index, argument in enumerate(self.command.arguments):
+        for argument in self.command.arguments:
             spec = self.catalog.find(argument.flag)
             if spec is None:
                 spec = FlagSpec(argument.flag, (argument.flag,), "Unknown argument retained from saved/imported command.", len(argument.values))
@@ -121,17 +121,16 @@ class CommandBuilder(QWidget):
     def add_argument(self) -> None:
         picker = SearchableFlagPicker(self.catalog, self)
         if picker.exec() and picker.selected:
-            self.add_spec(picker.selected)
+            self.add_spec(picker.selected, flag=picker.selected_flag)
 
-    def add_spec(self, spec: FlagSpec, values: list[str] | None = None, source_type: str = "manual") -> None:
-        if spec.canonical_name in {"--model"}:
+    def add_spec(self, spec: FlagSpec, values: list[str] | None = None, source_type: str = "manual", flag: str | None = None) -> None:
+        if spec.canonical_name == "--model":
             return
         if spec.canonical_name in {"--chat-template", "--chat-template-file"}:
             self._ensure_jinja_before_template()
-        flag = spec.preferred_name
-        self.command.arguments.append(CommandArgument(flag, values if values is not None else [""] * spec.parameter_count, source_type))
+        initial_values = values if values is not None else ([] if spec.optional_parameter else [""] * spec.parameter_count)
+        self.command.arguments.append(CommandArgument(flag or spec.preferred_name, initial_values, source_type))
         self.rebuild()
-
     def _ensure_jinja_before_template(self) -> None:
         if self.command.has_flag({"--jinja"}):
             return
@@ -144,8 +143,8 @@ class CommandBuilder(QWidget):
         if preset in {"dflash", "dspark"}:
             draft = self.catalog.find("--spec-draft-model")
             if draft and not any(self.catalog.find(argument.flag) and self.catalog.find(argument.flag).canonical_name == "--spec-draft-model" for argument in self.command.arguments):
-                folder = self.settings.dflash_folder if preset == "dflash" else self.settings.dspark_folder
-                self.command.arguments.append(CommandArgument(draft.preferred_name, [""], "draft_model", {"draft_source": folder}))
+                source = "dflash" if preset == "dflash" else "dspark"
+                self.command.arguments.append(CommandArgument(draft.preferred_name, [""], "draft_model", {"draft_source": source}))
             spec = self.catalog.find("--spec-type")
             if spec:
                 self.command.arguments.append(CommandArgument(spec.preferred_name, [f"draft-{preset}"], "preset"))
