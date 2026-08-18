@@ -26,6 +26,7 @@ class ConfigViewer(QWidget):
         self.log_level = QComboBox(); self.log_level.addItems(("debug", "info", "warn", "error"))
         self.log_output = QComboBox(); self.log_output.addItems(("proxy", "upstream", "both", "none"))
         self.include_aliases = QCheckBox("Include aliases in model list")
+        self.send_loading = QCheckBox("Send loading state")
         globals_form.addRow("Health check timeout", self.global_numbers["healthCheckTimeout"])
         globals_form.addRow("Global TTL", self.global_numbers["globalTTL"])
         globals_form.addRow("Unload timeout", self.global_numbers["unloadTimeout"])
@@ -33,6 +34,7 @@ class ConfigViewer(QWidget):
         globals_form.addRow("Log output", self.log_output)
         globals_form.addRow(self.include_aliases)
         globals_form.addRow("Start port", self.global_numbers["startPort"])
+        globals_form.addRow(self.send_loading)
         global_buttons = QHBoxLayout()
         self.save_globals = QPushButton("Save Global Settings")
         self.inherit_timeouts = QPushButton("Make model TTL/unload inherit globals")
@@ -199,21 +201,27 @@ class ConfigViewer(QWidget):
         self.refresh()
 
     def _load_globals(self, data) -> None:
-        defaults = {"healthCheckTimeout": 0, "globalTTL": 0, "unloadTimeout": 0, "startPort": 0}
+        defaults = {"healthCheckTimeout": 120, "globalTTL": 0, "unloadTimeout": 10, "startPort": 5800}
+        self._global_present = set(data)
+        self._global_effective = {key: data.get(key, default) for key, default in defaults.items()}
         for key, field in self.global_numbers.items():
-            field.setText(str(data.get(key, defaults[key])))
+            field.setText(str(self._global_effective[key]))
         self.log_level.setCurrentText(str(data.get("logLevel", "info")))
         self.log_output.setCurrentText(str(data.get("logToStdout", "both")))
         self.include_aliases.setChecked(bool(data.get("includeAliasesInList", False)))
+        self.send_loading.setChecked(bool(data.get("sendLoadingState", False)))
 
     def _save_globals(self) -> None:
         service = self.service()
         if service is None:
             return
         try:
-            values = {key: int(field.text()) for key, field in self.global_numbers.items()}
-            values.update({"logLevel": self.log_level.currentText(), "logToStdout": self.log_output.currentText(), "includeAliasesInList": self.include_aliases.isChecked()})
-            service.update_globals(values)
+            values = {key: int(field.text()) for key, field in self.global_numbers.items() if key in self._global_present or field.text() != str(self._global_effective[key])}
+            for key, value, default in (("logLevel", self.log_level.currentText(), "info"), ("logToStdout", self.log_output.currentText(), "both"), ("includeAliasesInList", self.include_aliases.isChecked(), False), ("sendLoadingState", self.send_loading.isChecked(), False)):
+                if key in self._global_present or value != default:
+                    values[key] = value
+            if values:
+                service.update_globals(values)
         except (ValueError, LlamaSwapError) as error:
             QMessageBox.critical(self, "Save Global Settings", str(error))
             return
@@ -235,8 +243,8 @@ class ConfigViewer(QWidget):
         if not self.current_id:
             return
         try:
-            ttl = -1 if self.ttl_mode.currentText() == "Inherit global" else int(self.ttl_value.text())
-            unload = 0 if self.unload_mode.currentText() == "Inherit global" else int(self.unload_value.text())
+            ttl = None if self.ttl_mode.currentText() == "Inherit global" else int(self.ttl_value.text())
+            unload = None if self.unload_mode.currentText() == "Inherit global" else int(self.unload_value.text())
             self.service().update_model_metadata(self.current_id, {"ttl": ttl, "unloadTimeout": unload})
         except (ValueError, LlamaSwapError) as error:
             QMessageBox.critical(self, "Save Model Settings", str(error))

@@ -49,6 +49,7 @@ class MemoryTestResult:
     exit_code: int | None = None
     fit_exit_code: int | None = None
     error: str = ""
+    fit_error: str = ""
     requested_argv: tuple[str, ...] = ()
     skipped_arguments: tuple[str, ...] = ()
     sidecars: tuple[tuple[str, str], ...] = ()
@@ -58,8 +59,16 @@ class MemoryTestResult:
         return self.raw_stdout + ("\n" if self.raw_stdout and self.raw_stderr else "") + self.raw_stderr
 
     @property
+    def estimate_success(self) -> bool:
+        return self.exit_code == 0 and self.breakdown is not None and not self.error
+
+    @property
+    def fit_success(self) -> bool:
+        return self.fit_exit_code == 0
+
+    @property
     def success(self) -> bool:
-        return self.exit_code == 0 and self.fit_exit_code == 0 and self.breakdown is not None and not self.error
+        return self.estimate_success
 
     @property
     def was_fitted(self) -> bool:

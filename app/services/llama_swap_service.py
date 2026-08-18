@@ -7,6 +7,7 @@ from tempfile import NamedTemporaryFile
 
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
+from app.services.llama_swap_validation import LlamaSwapConfigValidator, LlamaSwapSchemaError
 
 
 class LlamaSwapError(RuntimeError):
@@ -21,6 +22,8 @@ GLOBAL_FIELDS = {
     "healthCheckTimeout", "globalTTL", "unloadTimeout", "logLevel", "logToStdout", "includeAliasesInList", "startPort",
 }
 _LOG_LEVELS = {"debug", "info", "warn", "error"}
+
+EDITABLE_SUBTREES = frozenset({"store", "performance", "ui", "macros", "hooks", "upstream", "profiles", "selectors", "routing", "peers", "apiKeys"})
 _LOG_OUTPUTS = {"proxy", "upstream", "both", "none"}
 
 class LlamaSwapService:
@@ -32,6 +35,7 @@ class LlamaSwapService:
         self.yaml = YAML(typ="rt")
         self.yaml.preserve_quotes = True
         self.yaml.width = 120
+        self.validator = LlamaSwapConfigValidator()
 
     def load(self) -> CommentedMap:
         if not self.path.is_file():
@@ -118,38 +122,55 @@ class LlamaSwapService:
             data[key] = value
         self._safe_write(data)
 
+    def update_subtree(self, name: str, value: object | None) -> None:
+        if name not in EDITABLE_SUBTREES:
+            raise LlamaSwapError(f"{name} is not an editable llama-swap configuration subtree.")
+        data = self.load()
+        if value is None:
+            data.pop(name, None)
+        else:
+            data[name] = value
+        self._safe_write(data)
+
     def update_model_metadata(self, model_id: str, values: dict[str, object]) -> None:
         data = self.load()
         entry = data["models"].get(model_id)
         if not isinstance(entry, CommentedMap):
             raise LlamaSwapError(f"Model ID does not exist: {model_id}")
         for key, value in values.items():
-            entry[key] = value
+            if value is None and key in {"ttl", "unloadTimeout"}:
+                entry.pop(key, None)
+            else:
+                entry[key] = value
         self._validate_model_fields(model_id, entry)
         self._safe_write(data)
 
     def inherit_model_timeouts(self) -> int:
         data = self.load()
         for entry in data["models"].values():
-            entry["ttl"] = -1
-            entry["unloadTimeout"] = 0
+            entry.pop("ttl", None)
+            entry.pop("unloadTimeout", None)
         self._safe_write(data)
         return len(data["models"])
 
     @staticmethod
     def _validate_global_fields(data: CommentedMap) -> None:
-        for key in ("healthCheckTimeout", "globalTTL", "unloadTimeout", "startPort"):
+        if "healthCheckTimeout" in data and (not isinstance(data["healthCheckTimeout"], int) or isinstance(data["healthCheckTimeout"], bool) or data["healthCheckTimeout"] < 15):
+            raise LlamaSwapError("healthCheckTimeout must be an integer of at least 15 seconds.")
+        for key in ("globalTTL", "unloadTimeout", "metricsMaxInMemory", "captureBuffer"):
             if key in data and (not isinstance(data[key], int) or isinstance(data[key], bool) or data[key] < 0):
                 raise LlamaSwapError(f"{key} must be a non-negative integer.")
-        if "startPort" in data and data["startPort"] > 65535:
-            raise LlamaSwapError("startPort must be at most 65535.")
+        if "startPort" in data and (not isinstance(data["startPort"], int) or isinstance(data["startPort"], bool) or not 1 <= data["startPort"] <= 65535):
+            raise LlamaSwapError("startPort must be a usable port from 1 to 65535.")
         if "logLevel" in data and data["logLevel"] not in _LOG_LEVELS:
             raise LlamaSwapError("logLevel must be one of debug, info, warn, error.")
         if "logToStdout" in data and data["logToStdout"] not in _LOG_OUTPUTS:
             raise LlamaSwapError("logToStdout must be one of proxy, upstream, both, none.")
-        if "includeAliasesInList" in data and not isinstance(data["includeAliasesInList"], bool):
-            raise LlamaSwapError("includeAliasesInList must be true or false.")
-
+        for key in ("includeAliasesInList", "sendLoadingState"):
+            if key in data and not isinstance(data[key], bool):
+                raise LlamaSwapError(f"{key} must be true or false.")
+        if "logTimeFormat" in data and not isinstance(data["logTimeFormat"], str):
+            raise LlamaSwapError("logTimeFormat must be a string.")
     @staticmethod
     def _validate_model_fields(model_id: object, entry: CommentedMap) -> None:
         for key in ("ttl", "unloadTimeout"):
@@ -158,10 +179,28 @@ class LlamaSwapService:
         for key in ("name", "description", "useModelName", "checkEndpoint"):
             if key in entry and not isinstance(entry[key], str):
                 raise LlamaSwapError(f"Model {model_id!r} {key} must be a string.")
-        if "capabilities" in entry and not isinstance(entry["capabilities"], (CommentedMap, dict)):
+        if "capabilities" not in entry:
+            return
+        capabilities = entry["capabilities"]
+        if not isinstance(capabilities, (CommentedMap, dict)):
             raise LlamaSwapError(f"Model {model_id!r} capabilities must be a mapping.")
+        unknown = set(capabilities) - {"in", "out", "tools", "reranker", "context"}
+        if unknown:
+            raise LlamaSwapError(f"Model {model_id!r} capabilities has unknown key(s): {', '.join(sorted(unknown))}.")
+        for key in ("in", "out"):
+            if key in capabilities and (not isinstance(capabilities[key], list) or any(value not in {"text", "audio", "image"} for value in capabilities[key])):
+                raise LlamaSwapError(f"Model {model_id!r} capabilities.{key} must contain only text, audio, or image.")
+        for key in ("tools", "reranker"):
+            if key in capabilities and not isinstance(capabilities[key], bool):
+                raise LlamaSwapError(f"Model {model_id!r} capabilities.{key} must be true or false.")
+        if "context" in capabilities and (not isinstance(capabilities["context"], int) or isinstance(capabilities["context"], bool) or capabilities["context"] < 0):
+            raise LlamaSwapError(f"Model {model_id!r} capabilities.context must be a non-negative integer.")
     def _safe_write(self, data: CommentedMap) -> None:
         # Validate before opening a replacement file; this keeps failed writes
+        try:
+            self.validator.validate(data)
+        except LlamaSwapSchemaError as error:
+            raise LlamaSwapError(f"Official llama-swap schema validation failed: {error}") from error
         # from touching either the existing config or a locked Windows tempfile.
         self._validate_data(data)
         temporary_path: Path | None = None

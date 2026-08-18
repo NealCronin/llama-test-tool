@@ -84,3 +84,11 @@ def test_common_catalog_is_explicit_and_unknown_flags_remain_advanced():
 """)
     assert {spec.canonical_name for spec in actual.common_specs()} == {"--ctx-size", "--port"}
     assert "--new-upstream-flag" not in {spec.canonical_name for spec in actual.common_specs()}
+
+
+def test_real_catalog_short_negative_aliases_are_negative():
+    bundled = FlagCatalog.load_bundled(Path("data/llama_server_flags.json"))
+    for alias in ("-nkvo", "-nr", "-ndio"):
+        spec = bundled.find(alias)
+        assert spec is not None
+        assert spec.is_negative(alias)

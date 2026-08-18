@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from app.server import SERVER_COMMAND, server_executable_path
 
 
 @dataclass(frozen=True)
@@ -61,8 +62,8 @@ class LlamaCppInstallationService:
             DetectedTool("llama-bench", tuple(sorted(candidates["llama-bench"], key=cls._sort_key))),
         )
     @classmethod
-    def active_server(cls, settings) -> str:
-        return cls._active_discovered(settings.llama_server_selected, settings.llama_cpp_folder, "llama-server")
+    def active_server(cls, _settings) -> str:
+        return str(server_executable_path())
 
     @classmethod
     def active_fit_params(cls, settings) -> str:

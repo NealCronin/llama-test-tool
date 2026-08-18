@@ -36,3 +36,11 @@ def test_discovers_multiple_builds_and_handles_missing_tools(tmp_path):
     assert debug.resolve() in installation.server.paths
     assert not installation.fit_params.found
     assert not installation.bench.found
+
+
+def test_active_server_is_the_configured_build_mixed_server():
+    from app.server import SERVER_COMMAND
+    from app.settings import AppSettings
+
+    active = LlamaCppInstallationService.active_server(AppSettings())
+    assert active.replace("\\", "/").endswith(SERVER_COMMAND)

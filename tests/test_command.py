@@ -1,6 +1,7 @@
 from app.models.command import Command, CommandArgument
 from app.services.command_parser import parse_command
 from app.services.flag_catalog import FlagCatalog
+from app.models.flags import FlagSpec
 from app.services.validation import validate_command
 from app.widgets.argument_row import ArgumentRow
 
@@ -102,3 +103,14 @@ def test_representative_structured_argv_preserves_each_value_as_one_token():
         "llama-server", "-m", "model.gguf", "-dev", "CUDA0,Vulkan1",
         "-ts", "2,1", "-fitt", "1024,2048", "-ot", "blk.*=CPU", "-ngl", "all",
     ]
+
+
+def test_required_blank_values_fail_validation():
+    from app.services.validation import validate_command
+    catalog = FlagCatalog([
+        FlagSpec("--model", ("-m", "--model"), "model", 1),
+        FlagSpec("--device", ("-dev", "--device"), "devices", 1),
+        FlagSpec("--flash-attn", ("-fa", "--flash-attn"), "flash", 1, optional_parameter=True),
+    ])
+    command = Command(arguments=[CommandArgument("-m", ["missing.gguf"]), CommandArgument("-dev", [""]), CommandArgument("-fa", [])])
+    assert any("non-empty" in issue.message for issue in validate_command(command, catalog))

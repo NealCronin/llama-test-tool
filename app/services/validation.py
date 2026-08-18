@@ -32,8 +32,8 @@ def validate_command(command: Command, catalog: FlagCatalog) -> list[ValidationI
         if spec is None:
             issues.append(ValidationIssue("warning", f"{argument.flag} is no longer in the loaded argument catalog."))
             continue
-        if len(argument.values) < spec.parameter_count and not spec.optional_parameter:
-            issues.append(ValidationIssue("error", f"{argument.flag} requires {spec.parameter_count} value(s)."))
+        if not spec.optional_parameter and (len(argument.values) < spec.parameter_count or any(not value.strip() for value in argument.values[:spec.parameter_count])):
+            issues.append(ValidationIssue("error", f"{argument.flag} requires {spec.parameter_count} non-empty value(s)."))
         if spec.choices and argument.values and spec.value_type != "integer_or_choices":
             values = argument.values[0].split(",") if spec.special_editor == "spec_type" else argument.values
             invalid = [value for value in values if value and value not in spec.choices]

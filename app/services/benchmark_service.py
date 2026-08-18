@@ -79,9 +79,9 @@ def translate_command(command: Command, catalog: FlagCatalog, supported_flags: f
             value = values[0] if values else ""
             if value in {"all", "auto"}:
                 if append(("-ngl", "--n-gpu-layers"), ["-1"], argument.flag):
-                    translated.append(f"{argument.flag} {value} -> -ngl -1")
+                    translated.append(f"{argument.flag} {value} -> -ngl -1" + (" (approximation)" if value == "auto" else ""))
                     if value == "auto":
-                        warnings.append("llama-bench uses -ngl -1 for its full/default GPU offload; this is an explicit benchmark-only conversion of server auto.")
+                        warnings.append("Server -ngl auto uses automatic placement. llama-bench has no equivalent here; this benchmark approximates it with explicit -ngl -1.")
             else:
                 try:
                     int(value)
@@ -97,12 +97,12 @@ def translate_command(command: Command, catalog: FlagCatalog, supported_flags: f
                 append(_PASSTHROUGH[canonical], values, argument.flag)
             continue
         if canonical in {"--kv-offload", "--no-kv-offload"}:
-            value = "0" if canonical == "--kv-offload" else "1"
+            value = "1" if canonical == "--no-kv-offload" or spec and spec.is_negative(argument.flag) else "0"
             if append(("-nkvo", "--no-kv-offload"), [value], argument.flag):
                 translated.append(f"{argument.flag} -> -nkvo {value}")
             continue
         if canonical in {"--op-offload", "--no-op-offload"}:
-            value = "0" if canonical == "--op-offload" else "1"
+            value = "1" if canonical == "--no-op-offload" or spec and spec.is_negative(argument.flag) else "0"
             if append(("-nopo", "--no-op-offload"), [value], argument.flag):
                 translated.append(f"{argument.flag} -> -nopo {value}")
             continue
@@ -111,7 +111,7 @@ def translate_command(command: Command, catalog: FlagCatalog, supported_flags: f
                 translated.append(f"{argument.flag} -> --no-host 1")
             continue
         if canonical in {"--mmap", "--no-mmap"}:
-            value = "1" if canonical == "--mmap" else "0"
+            value = "0" if canonical == "--no-mmap" or spec and spec.is_negative(argument.flag) else "1"
             if append(("-mmp", "--mmap"), [value], argument.flag):
                 translated.append(f"{argument.flag} -> -mmp {value}")
             continue

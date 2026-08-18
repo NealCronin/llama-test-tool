@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
+NEGATIVE_SHORT_ALIASES = frozenset({"-nkvo", "-nr", "-ndio", "-nocb", "-no-kvu", "-nopo", "-nmmproj"})
+
 @dataclass(frozen=True)
 class FlagSpec:
     """One logical llama-server argument, including every documented alias."""
@@ -55,8 +57,8 @@ class FlagSpec:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "FlagSpec":
         aliases = tuple(data.get("aliases", []))
-        negative = tuple(data.get("negative_aliases", _negative_aliases(aliases)))
-        positive = tuple(data.get("positive_aliases", tuple(alias for alias in aliases if alias not in negative)))
+        negative = tuple(dict.fromkeys((*tuple(data.get("negative_aliases", ())), *_negative_aliases(aliases))))
+        positive = tuple(alias for alias in aliases if alias not in negative)
         return cls(
             canonical_name=data["canonical_name"],
             aliases=aliases,
@@ -71,7 +73,5 @@ class FlagSpec:
             positive_aliases=positive,
             negative_aliases=negative,
         )
-
-
 def _negative_aliases(aliases: tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(alias for alias in aliases if alias.startswith(("--no-", "-no-")))
+    return tuple(alias for alias in aliases if alias.startswith(("--no-", "-no-")) or alias in NEGATIVE_SHORT_ALIASES)

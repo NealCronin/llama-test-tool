@@ -104,22 +104,16 @@ def test_supported_flags_come_from_help_text():
 
 
 def test_fit_status_distinguishes_explicit_changes_from_unknown_defaults():
-    changed = MemoryTestResult(
-        breakdown=MemoryBreakdown(()),
-        fitted_arguments=("-c", "65536"),
-        requested_argv=("-m", "model.gguf"),
-    )
-    returned = MemoryTestResult(
-        breakdown=MemoryBreakdown(()),
-        fitted_arguments=("-c", "65536"),
-        requested_argv=("-m", "model.gguf", "-c", "65536"),
-    )
-    unchanged = MemoryTestResult(
-        breakdown=MemoryBreakdown(()),
-        fitted_arguments=("-c", "65536"),
-        requested_argv=("-m", "model.gguf", "-c", "65536"),
-        raw_stdout="no changes needed",
-    )
+    changed = MemoryTestResult(breakdown=MemoryBreakdown(()), fitted_arguments=("-c", "65536"), requested_argv=("-m", "model.gguf"))
+    returned = MemoryTestResult(breakdown=MemoryBreakdown(()), fitted_arguments=("-c", "65536"), requested_argv=("-m", "model.gguf", "-c", "65536"))
+    unchanged = MemoryTestResult(breakdown=MemoryBreakdown(()), fitted_arguments=("-c", "65536"), requested_argv=("-m", "model.gguf", "-c", "65536"), raw_stdout="no changes needed")
     assert changed.fit_status == "fitted"
     assert returned.fit_status == "returned"
     assert unchanged.fit_status == "unchanged"
+
+
+def test_estimate_remains_successful_when_fitting_fails():
+    result = MemoryTestResult(breakdown=MemoryBreakdown(()), exit_code=0, fit_exit_code=1, fit_error="Automatic fitting unavailable")
+    assert result.estimate_success
+    assert not result.fit_success
+    assert result.success

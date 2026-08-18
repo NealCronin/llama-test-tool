@@ -6,18 +6,21 @@ import re
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-from app.models.flags import FlagSpec
+from app.models.flags import NEGATIVE_SHORT_ALIASES, FlagSpec
 
 README_URL = "https://raw.githubusercontent.com/ggml-org/llama.cpp/master/tools/server/README.md"
 
-COMMON_FLAG_NAMES = frozenset({
-    "--model", "--ctx-size", "--parallel", "--gpu-layers", "--device", "--split-mode", "--tensor-split", "--main-gpu",
-    "--cpu-moe", "--n-cpu-moe", "--flash-attn", "--cache-type-k", "--cache-type-v", "--fit", "--fit-target", "--fit-ctx",
-    "--threads", "--threads-batch", "--batch-size", "--ubatch-size", "--mmproj", "--no-mmproj-offload", "--image-min-tokens",
-    "--spec-type", "--spec-draft-model", "--cache-type-k-draft", "--cache-type-v-draft", "--spec-draft-n-max", "--spec-draft-p-min",
-    "--spec-ngram-n", "--spec-ngram-min", "--spec-ngram-max", "--host", "--port", "--alias", "--jinja", "--chat-template",
-    "--chat-template-file", "--reasoning-format", "--reasoning-budget", "--temp", "--top-p", "--top-k", "--min-p",
-    "--presence-penalty", "--repeat-penalty", "--cache-ram", "--ctx-checkpoints",
+COMMON_FLAG_REFERENCES = frozenset({
+    "--model", "--ctx-size", "--parallel", "--gpu-layers", "--device", "--split-mode", "--tensor-split", "--main-gpu", "--override-tensor",
+    "--cpu-moe", "--n-cpu-moe", "--kv-offload", "--no-kv-offload", "--op-offload", "--no-op-offload", "--load-mode", "--no-host", "--repack",
+    "--cache-type-k", "--cache-type-v", "--kv-unified", "--cache-ram", "--ctx-checkpoints", "--threads", "--threads-batch", "--batch-size",
+    "--ubatch-size", "--flash-attn", "--fit", "--fit-target", "--fit-ctx", "--mmproj", "--mmproj-offload", "--no-mmproj-offload",
+    "--image-min-tokens", "--image-max-tokens", "--mtmd-batch-max-tokens", "--spec-type", "--spec-draft-model", "--cache-type-k-draft",
+    "--cache-type-v-draft", "--spec-draft-type-k", "--spec-draft-type-v", "--spec-draft-device", "--spec-draft-ngl", "--spec-draft-override-tensor",
+    "--spec-draft-cpu-moe", "--spec-draft-n-cpu-moe", "--spec-draft-n-max", "--spec-draft-n-min", "--spec-draft-p-min", "--spec-draft-p-split",
+    "--spec-ngram-mod-n-match", "--spec-ngram-mod-n-min", "--spec-ngram-mod-n-max", "--host", "--port", "--alias", "--timeout", "--threads-http",
+    "--jinja", "--no-jinja", "--chat-template", "--chat-template-file", "--reasoning", "--reasoning-format", "--reasoning-effort", "--reasoning-budget",
+    "--temp", "--top-p", "--top-k", "--min-p", "--presence-penalty", "--frequency-penalty", "--repeat-penalty", "--verbosity", "--log-verbosity", "--log-timestamps",
 })
 
 
@@ -143,7 +146,7 @@ class FlagCatalog:
 
     @staticmethod
     def _polarity(aliases: tuple[str, ...]) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        negative = tuple(alias for alias in aliases if alias.startswith(("--no-", "-no-")))
+        negative = tuple(alias for alias in aliases if alias.startswith(("--no-", "-no-")) or alias in NEGATIVE_SHORT_ALIASES)
         return tuple(alias for alias in aliases if alias not in negative), negative
 
     @staticmethod
@@ -164,7 +167,8 @@ class FlagCatalog:
         return [spec for spec in self.specs if spec.matches(query)]
 
     def common_specs(self) -> list[FlagSpec]:
-        return [spec for spec in self.specs if spec.canonical_name in COMMON_FLAG_NAMES]
+        canonical = {spec.canonical_name for reference in COMMON_FLAG_REFERENCES if (spec := self.find(reference))}
+        return [spec for spec in self.specs if spec.canonical_name in canonical]
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

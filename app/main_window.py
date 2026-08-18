@@ -17,6 +17,7 @@ from app.services.flag_catalog import FlagCatalog
 from app.services.llama_swap_service import DuplicateModelError, LlamaSwapError, LlamaSwapService, suggested_model_id
 from app.services.validation import validate_command
 from app.services.llama_cpp_installation import LlamaCppInstallationService
+from app.server import SERVER_COMMAND, server_executable_path
 from app.services.memory_test_service import MemoryTestService
 from app.services.benchmark_service import BenchmarkService
 from app.settings import AppSettings
@@ -64,12 +65,13 @@ class SettingsPage(QWidget):
 
         detected = QGroupBox("Detected Tools")
         detected_form = QFormLayout(detected)
-        self.server_combo = QComboBox()
+        self.server_path = QLabel(SERVER_COMMAND)
+        self.server_path.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.fit_combo = QComboBox()
         self.bench_combo = QComboBox()
         self.rescan = QPushButton("Rescan")
         self.rescan.clicked.connect(self.rescan_tools)
-        detected_form.addRow("llama-server", self.server_combo)
+        detected_form.addRow("llama-server", self.server_path)
         detected_form.addRow("llama-fit-params", self.fit_combo)
         detected_form.addRow("llama-bench", self.bench_combo)
         detected_form.addRow(self.rescan)
@@ -100,7 +102,7 @@ class SettingsPage(QWidget):
     def rescan_tools(self) -> None:
         self._scanned_folder = self.fields["llama_cpp_folder"].text().strip()
         installation = LlamaCppInstallationService.discover(self.fields["llama_cpp_folder"].text().strip())
-        self._populate_tool_combo(self.server_combo, installation.server.paths, self.settings.llama_server_selected)
+        self.server_path.setText(SERVER_COMMAND if server_executable_path().is_file() else f"⚠ Missing: {SERVER_COMMAND}")
         self._populate_tool_combo(self.fit_combo, installation.fit_params.paths, self.settings.llama_fit_params_executable)
         self._populate_tool_combo(self.bench_combo, installation.bench.paths, self.settings.llama_bench_executable)
 
@@ -122,7 +124,6 @@ class SettingsPage(QWidget):
             self.rescan_tools()
         for key, field in self.fields.items():
             setattr(self.settings, key, field.text().strip())
-        self.settings.llama_server_selected = self.server_combo.currentData() or ""
         self.settings.llama_fit_params_executable = self.fit_combo.currentData() or ""
         self.settings.llama_bench_executable = self.bench_combo.currentData() or ""
         try:
@@ -142,7 +143,7 @@ class ModelDialog(QDialog):
         self.model_id = QLineEdit(suggested_id)
         self.display_name = QLineEdit()
         self.description = QLineEdit()
-        self.use_model_name = QLineEdit(suggested_id)
+        self.use_model_name = QLineEdit()
         self.check_endpoint = QLineEdit("/health")
         self.inherit_ttl = QCheckBox("Inherit global TTL"); self.inherit_ttl.setChecked(True)
         self.ttl = QLineEdit(); self.ttl.setEnabled(False)
@@ -150,31 +151,45 @@ class ModelDialog(QDialog):
         self.unload = QLineEdit(); self.unload.setEnabled(False)
         self.input_text = QCheckBox("Input text"); self.input_text.setChecked(True)
         self.input_image = QCheckBox("Input image"); self.input_image.setChecked(has_mmproj)
+        self.input_audio = QCheckBox("Input audio")
         self.output_text = QCheckBox("Output text"); self.output_text.setChecked(True)
+        self.output_image = QCheckBox("Output image")
+        self.output_audio = QCheckBox("Output audio")
         self.tools = QCheckBox("Tools")
+        self.reranker = QCheckBox("Reranker")
         self.context = QLineEdit(context_size)
         self.inherit_ttl.toggled.connect(lambda checked: self.ttl.setEnabled(not checked))
         self.inherit_unload.toggled.connect(lambda checked: self.unload.setEnabled(not checked))
-        for label, widget in (("Model ID", self.model_id), ("Display name", self.display_name), ("Description", self.description), ("useModelName", self.use_model_name), ("checkEndpoint", self.check_endpoint), ("TTL", self.ttl), ("Unload timeout", self.unload), ("Context capability", self.context)):
+        for label, widget in (("Model ID", self.model_id), ("Display name", self.display_name), ("Description", self.description), ("useModelName", self.use_model_name), ("checkEndpoint", self.check_endpoint), ("TTL override", self.ttl), ("Unload timeout override", self.unload), ("Context capability", self.context)):
             form.addRow(label, widget)
         form.addRow(self.inherit_ttl); form.addRow(self.inherit_unload)
-        form.addRow(self.input_text); form.addRow(self.input_image); form.addRow(self.output_text); form.addRow(self.tools)
+        for widget in (self.input_text, self.input_image, self.input_audio, self.output_text, self.output_image, self.output_audio, self.tools, self.reranker):
+            form.addRow(widget)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save)
         buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject)
         form.addRow(buttons)
 
     def metadata(self) -> dict[str, object]:
         try:
-            ttl = -1 if self.inherit_ttl.isChecked() else int(self.ttl.text())
-            unload = 0 if self.inherit_unload.isChecked() else int(self.unload.text())
+            ttl = None if self.inherit_ttl.isChecked() else int(self.ttl.text())
+            unload = None if self.inherit_unload.isChecked() else int(self.unload.text())
             context = int(self.context.text()) if self.context.text().strip() else None
         except ValueError as error:
             raise ValueError("TTL, unload timeout, and context capability must be whole numbers.") from error
-        capabilities = {"input": ["text"] if self.input_text.isChecked() else [], "output": ["text"] if self.output_text.isChecked() else []}
-        if self.input_image.isChecked(): capabilities["input"].append("image")
-        if self.tools.isChecked(): capabilities["tools"] = True
-        if context is not None: capabilities["context"] = context
-        return {"description": self.description.text().strip(), "useModelName": self.use_model_name.text().strip() or self.model_id.text().strip(), "checkEndpoint": self.check_endpoint.text().strip() or "/health", "ttl": ttl, "unloadTimeout": unload, "capabilities": capabilities}
+        if context is not None and context < 0:
+            raise ValueError("Context capability cannot be negative.")
+        inputs = [name for name, checked in (("text", self.input_text.isChecked()), ("image", self.input_image.isChecked()), ("audio", self.input_audio.isChecked())) if checked]
+        outputs = [name for name, checked in (("text", self.output_text.isChecked()), ("image", self.output_image.isChecked()), ("audio", self.output_audio.isChecked())) if checked]
+        capabilities: dict[str, object] = {"in": inputs, "out": outputs, "tools": self.tools.isChecked(), "reranker": self.reranker.isChecked()}
+        if context is not None:
+            capabilities["context"] = context
+        metadata: dict[str, object] = {"capabilities": capabilities}
+        if self.description.text().strip(): metadata["description"] = self.description.text().strip()
+        if self.use_model_name.text().strip(): metadata["useModelName"] = self.use_model_name.text().strip()
+        if self.check_endpoint.text().strip(): metadata["checkEndpoint"] = self.check_endpoint.text().strip()
+        if ttl is not None: metadata["ttl"] = ttl
+        if unload is not None: metadata["unloadTimeout"] = unload
+        return metadata
 
 
 class MainWindow(QMainWindow):
@@ -237,6 +252,13 @@ class MainWindow(QMainWindow):
             action.triggered.connect(handler)
             presets.addAction(action)
 
+    def _current_argument_values(self) -> dict[str, str]:
+        values: dict[str, str] = {}
+        for argument in self.builder.command.arguments:
+            if spec := self.catalog.find(argument.flag):
+                values[spec.canonical_name] = argument.values[0] if argument.values else ""
+        return values
+
     def settings_saved(self) -> None:
         self.builder.rebuild()
         self.viewer.refresh()
@@ -250,7 +272,7 @@ class MainWindow(QMainWindow):
             self.builder.set_argument(name, argument_values)
 
     def context_kv_preset(self) -> None:
-        dialog = ContextKvPresetDialog(self.catalog, self)
+        dialog = ContextKvPresetDialog(self.catalog, self._current_argument_values(), self)
         if dialog.exec():
             try:
                 self._apply_preset_values(dialog.values())
@@ -258,12 +280,12 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Context + KV Cache", str(error))
 
     def device_split_preset(self) -> None:
-        dialog = DeviceSplitPresetDialog(self)
+        dialog = DeviceSplitPresetDialog(self._current_argument_values(), self)
         if dialog.exec():
             self._apply_preset_values(dialog.values())
 
     def custom_mtp_preset(self) -> None:
-        dialog = CustomMtpPresetDialog(self.settings, self.catalog, self)
+        dialog = CustomMtpPresetDialog(self.settings, self.catalog, self._current_argument_values(), self)
         if dialog.exec():
             try:
                 self._apply_preset_values(dialog.values())
@@ -455,10 +477,13 @@ class MainWindow(QMainWindow):
         if result.command is None:
             QMessageBox.information(self, "Raw Command Mode", f"This command is preserved in the Config tab's editable Raw Command Mode.\n\n{result.raw_reason}")
             return
+        previous_executable = result.command.executable
+        result.command.executable = SERVER_COMMAND
         self.builder.command = result.command
         self.builder.rebuild()
         self.tabs.setCurrentWidget(self.tabs.widget(0))
-        self.statusBar().showMessage("Loaded llama-swap command into the visual builder.", 5_000)
+        warning = " This entry used another server executable; the Command Builder uses the configured build-mixed llama-server." if previous_executable != SERVER_COMMAND else ""
+        self.statusBar().showMessage(f"Loaded llama-swap command into the visual builder.{warning}", 8_000)
 
     def closeEvent(self, event) -> None:
         self.settings.window_geometry = bytes(self.saveGeometry()).hex()

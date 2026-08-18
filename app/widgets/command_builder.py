@@ -13,6 +13,7 @@ from app.models.command import Command, CommandArgument
 from app.models.flags import FlagSpec
 from app.services.flag_catalog import FlagCatalog
 from app.services.validation import validate_command
+from app.server import SERVER_COMMAND
 from app.settings import AppSettings
 from app.widgets.argument_row import ArgumentRow
 from app.widgets.searchable_flag_picker import SearchableFlagPicker
@@ -33,7 +34,8 @@ class CommandBuilder(QWidget):
     def __init__(self, settings: AppSettings, catalog: FlagCatalog, parent=None) -> None:
         super().__init__(parent)
         self.settings, self.catalog = settings, catalog
-        self.command = Command.from_dict(settings.last_command) if settings.last_command else Command(executable=settings.llama_server_selected or "llama-server")
+        self.command = Command.from_dict(settings.last_command) if settings.last_command else Command(executable=SERVER_COMMAND)
+        self.command.executable = SERVER_COMMAND
         self.rows: list[ArgumentRow] = []
         layout = QVBoxLayout(self)
         heading = QHBoxLayout()
@@ -136,7 +138,7 @@ class CommandBuilder(QWidget):
     def add_spec(self, spec: FlagSpec, values: list[str] | None = None, source_type: str = "manual", flag: str | None = None) -> None:
         if spec.canonical_name == "--model":
             return
-        if spec.canonical_name in {"--chat-template", "--chat-template-file"}:
+        if spec.canonical_name in {"--chat-template", "--chat-template-file"} and values and values[0]:
             self._ensure_jinja_before_template()
         initial_values = values if values is not None else ([] if spec.optional_parameter else [""] * spec.parameter_count)
         self.command.arguments.append(CommandArgument(flag or spec.preferred_name, initial_values, source_type))
@@ -146,21 +148,21 @@ class CommandBuilder(QWidget):
         spec = self.catalog.find(canonical_name)
         if spec is None:
             return
+        if spec.canonical_name in {"--chat-template", "--chat-template-file"} and values and values[0]:
+            self._ensure_jinja_before_template()
         existing = next((argument for argument in self.command.arguments if (current := self.catalog.find(argument.flag)) and current.canonical_name == spec.canonical_name), None)
         if existing is None:
             self.command.arguments.append(CommandArgument(spec.preferred_name, list(values), source_type))
         else:
-            existing.values = list(values)
-            existing.source_type = source_type
+            existing.values, existing.source_type = list(values), source_type
         self.rebuild()
 
     def _ensure_jinja_before_template(self) -> None:
-        if self.command.has_flag({"--jinja"}):
+        if self.catalog.find("--jinja") is None:
             return
-        jinja = self.catalog.find("--jinja")
-        if jinja:
-            template_index = next((i for i, arg in enumerate(self.command.arguments) if self.catalog.find(arg.flag) and self.catalog.find(arg.flag).canonical_name in {"--chat-template", "--chat-template-file"}), len(self.command.arguments))
-            self.command.arguments.insert(template_index, CommandArgument("--jinja"))
+        self.command.arguments = [argument for argument in self.command.arguments if not ((current := self.catalog.find(argument.flag)) and current.canonical_name == "--jinja")]
+        template_index = next((i for i, arg in enumerate(self.command.arguments) if (current := self.catalog.find(arg.flag)) and current.canonical_name in {"--chat-template", "--chat-template-file"}), len(self.command.arguments))
+        self.command.arguments.insert(template_index, CommandArgument("--jinja"))
 
     def apply_preset(self, preset: str) -> None:
         lookup = {

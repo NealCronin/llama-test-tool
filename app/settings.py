@@ -15,7 +15,6 @@ class AppSettings:
     drafters_folder: str = ""
     template_folder: str = ""
     llama_cpp_folder: str = ""
-    llama_server_selected: str = ""
     llama_fit_params_executable: str = ""
     llama_bench_executable: str = ""
     llama_swap_config: str = ""
@@ -62,7 +61,7 @@ class AppSettings:
             "Drafters folder": self.drafters_folder,
             "Chat template folder": self.template_folder,
             "llama.cpp Folder": self.llama_cpp_folder,
-            "Detected llama-server": self.llama_server_selected,
+            "Configured llama-server": "Engines/llama.cpp/build-mixed/bin/Release/llama-server.exe",
             "Detected llama-fit-params": self.llama_fit_params_executable,
             "Detected llama-bench": self.llama_bench_executable,
             "llama-swap config file": self.llama_swap_config,

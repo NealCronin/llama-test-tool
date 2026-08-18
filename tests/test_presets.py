@@ -71,8 +71,7 @@ def test_picker_defaults_to_common_and_advanced_reveals_catalog():
     advanced_flags = {picker.results.item(index).data(256 + 1) for index in range(picker.results.count())}
     assert "--uncommon-new-flag" in advanced_flags
 
-
-def test_builder_preserves_imported_specialized_executable():
-    settings = AppSettings(last_command={"executable": r"D:\Engines\laguna\llama-server.exe", "arguments": [{"flag": "-m", "values": ["model.gguf"]}]})
+def test_builder_normalizes_imported_executable_to_configured_server():
+    settings = AppSettings(last_command={"executable": r"D:\Engines\other\llama-server.exe", "arguments": [{"flag": "-m", "values": ["model.gguf"]}]})
     widget = CommandBuilder(settings, FlagCatalog([FlagSpec("--model", ("-m", "--model"), "model", 1)]))
-    assert widget.command.rendered_lines().splitlines()[0] == r"D:\Engines\laguna\llama-server.exe"
+    assert widget.command.rendered_lines().splitlines()[0] == "Engines/llama.cpp/build-mixed/bin/Release/llama-server.exe"

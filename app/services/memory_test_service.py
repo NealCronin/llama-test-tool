@@ -213,7 +213,7 @@ class MemoryTestService(QObject):
         self._fit_code = exit_code
         breakdown = MemoryBreakdownParser.parse(self._estimate_stdout + "\n" + self._estimate_stderr)
         fitted = parse_fitted_arguments(self._fit_stdout + "\n" + self._fit_stderr) if exit_code == 0 else ()
-        error = "" if exit_code == 0 else "llama-fit-params failed while calculating fitted arguments."
+        fit_error = "" if exit_code == 0 else "Automatic fitted parameters are unavailable for this configuration."
         self._complete(MemoryTestResult(
             breakdown=breakdown,
             fitted_arguments=fitted,
@@ -223,7 +223,7 @@ class MemoryTestService(QObject):
             raw_stderr=self._estimate_stderr + "\n" + self._fit_stderr,
             exit_code=self._estimate_code,
             fit_exit_code=self._fit_code,
-            error=error,
+            fit_error=fit_error,
             requested_argv=self._base_argv,
         ))
 

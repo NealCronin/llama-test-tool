@@ -92,7 +92,10 @@ class MemoryResultsDialog(QDialog):
         layout.addWidget(table)
 
     def _add_fit_result(self, layout: QVBoxLayout) -> None:
-        layout.addWidget(QLabel("<h3>Fit Result</h3>"))
+        layout.addWidget(QLabel("<h3>Automatic Fitted Parameters</h3>"))
+        if self.result.fit_error:
+            layout.addWidget(QLabel(f"<b>Unavailable:</b> {self.result.fit_error} The memory estimate above is still valid."))
+            return
         if self.result.fitted_arguments:
             fitted = " ".join(self.result.fitted_arguments)
             layout.addWidget(QLabel(f"Fitted arguments: <code>{fitted}</code>"))
