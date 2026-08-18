@@ -20,10 +20,17 @@ class AppSettings:
     llama_cpp_folder: str = ""
     llama_server_selected: str = ""
     llama_fit_params_executable: str = ""
+    llama_bench_executable: str = ""
     llama_server_executable: str = ""
     llama_swap_config: str = ""
     memory_fit_target: str = ""
     memory_fit_context: str = ""
+    benchmark_prompt_tokens: int = 512
+    benchmark_generation_tokens: int = 128
+    benchmark_repetitions: int = 5
+    benchmark_context_depth: int = 0
+    benchmark_delay: int = 0
+    benchmark_no_warmup: bool = False
     window_geometry: str = ""
     vertical_preview: bool = False
     backup_limit: int = 10
@@ -62,6 +69,6 @@ class AppSettings:
             "llama.cpp Folder": self.llama_cpp_folder,
             "Detected llama-server": self.llama_server_selected,
             "Detected llama-fit-params": self.llama_fit_params_executable,
-            "llama-server executable": self.llama_server_executable,
+            "Detected llama-bench": self.llama_bench_executable,
             "llama-swap config file": self.llama_swap_config,
         }

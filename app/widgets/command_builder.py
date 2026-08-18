@@ -26,6 +26,9 @@ class CommandBuilder(QWidget):
     memory_test_requested = Signal()
     memory_options_requested = Signal()
     memory_cancel_requested = Signal()
+    benchmark_requested = Signal()
+    benchmark_options_requested = Signal()
+    benchmark_cancel_requested = Signal()
 
     def __init__(self, settings: AppSettings, catalog: FlagCatalog, parent=None) -> None:
         super().__init__(parent)
@@ -64,6 +67,10 @@ class CommandBuilder(QWidget):
         self.copy = QPushButton("Copy Command")
         self.clear = QPushButton("Clear Command")
         self.memory_test = QPushButton("Memory Test")
+        self.benchmark = QPushButton("Benchmark")
+        self.benchmark_options = QPushButton("Benchmark Options")
+        self.benchmark_cancel = QPushButton("Cancel Benchmark")
+        self.benchmark_cancel.setEnabled(False)
         self.memory_options = QPushButton("Memory Test Options")
         self.memory_cancel = QPushButton("Cancel Memory Test")
         self.memory_cancel.setEnabled(False)
@@ -71,7 +78,7 @@ class CommandBuilder(QWidget):
         self.stop = QPushButton("Stop")
         self.stop.setEnabled(False)
         self.add_swap = QPushButton("Add to llama-swap")
-        for button in (self.preview_vertical, self.memory_test, self.memory_options, self.memory_cancel, self.test, self.stop, self.copy, self.clear, self.add_swap):
+        for button in (self.preview_vertical, self.memory_test, self.benchmark, self.benchmark_options, self.benchmark_cancel, self.memory_options, self.memory_cancel, self.test, self.stop, self.copy, self.clear, self.add_swap):
             controls.addWidget(button)
         controls.addStretch()
         layout.addLayout(controls)
@@ -93,6 +100,9 @@ class CommandBuilder(QWidget):
         self.memory_test.clicked.connect(self.memory_test_requested)
         self.memory_options.clicked.connect(self.memory_options_requested)
         self.memory_cancel.clicked.connect(self.memory_cancel_requested)
+        self.benchmark.clicked.connect(self.benchmark_requested)
+        self.benchmark_options.clicked.connect(self.benchmark_options_requested)
+        self.benchmark_cancel.clicked.connect(self.benchmark_cancel_requested)
         self.rebuild()
 
     def set_catalog(self, catalog: FlagCatalog) -> None:
@@ -188,6 +198,11 @@ class CommandBuilder(QWidget):
         self.memory_options.setEnabled(not running)
         self.memory_cancel.setEnabled(running)
 
+
+    def set_benchmark_running(self, running: bool) -> None:
+        self.benchmark.setEnabled(not running)
+        self.benchmark_options.setEnabled(not running)
+        self.benchmark_cancel.setEnabled(running)
     def copy_command(self) -> None:
         QGuiApplication.clipboard().setText(self.command.rendered(self.settings.llama_server_executable or None, vertical=self.preview_vertical.isChecked()))
 

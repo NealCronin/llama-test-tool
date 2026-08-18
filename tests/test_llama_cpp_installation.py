@@ -11,17 +11,21 @@ def touch(root, relative):
 def test_discovers_standard_posix_build_tools(tmp_path):
     server = touch(tmp_path, "build/bin/llama-server")
     fit = touch(tmp_path, "build/bin/llama-fit-params")
+    bench = touch(tmp_path, "build/bin/llama-bench")
     installation = LlamaCppInstallationService.discover(tmp_path)
     assert installation.server.paths == (server.resolve(),)
     assert installation.fit_params.paths == (fit.resolve(),)
+    assert installation.bench.paths == (bench.resolve(),)
 
 
 def test_discovers_windows_release_tools(tmp_path):
     server = touch(tmp_path, "build/bin/Release/llama-server.exe")
     fit = touch(tmp_path, "build/bin/Release/llama-fit-params.exe")
+    bench = touch(tmp_path, "build/bin/Release/llama-bench.exe")
     installation = LlamaCppInstallationService.discover(tmp_path)
     assert installation.server.paths == (server.resolve(),)
     assert installation.fit_params.paths == (fit.resolve(),)
+    assert installation.bench.paths == (bench.resolve(),)
 
 
 def test_discovers_multiple_builds_and_handles_missing_tools(tmp_path):
@@ -31,3 +35,4 @@ def test_discovers_multiple_builds_and_handles_missing_tools(tmp_path):
     assert installation.server.paths[0] == release.resolve()
     assert debug.resolve() in installation.server.paths
     assert not installation.fit_params.found
+    assert not installation.bench.found

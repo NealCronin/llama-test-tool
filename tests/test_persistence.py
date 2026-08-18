@@ -7,7 +7,7 @@ from app.settings import AppSettings
 def test_save_restore_and_clear_builder_state(tmp_path, monkeypatch):
     path = tmp_path / "settings.json"
     monkeypatch.setattr(AppSettings, "path", classmethod(lambda cls: path))
-    settings = AppSettings(models_folder="models", llama_cpp_folder="llama.cpp", llama_server_selected="llama-server", llama_fit_params_executable="llama-fit-params")
+    settings = AppSettings(models_folder="models", llama_cpp_folder="llama.cpp", llama_server_selected="llama-server", llama_fit_params_executable="llama-fit-params", llama_bench_executable="llama-bench", benchmark_prompt_tokens=768)
     command = Command(arguments=[CommandArgument("-m", ["missing.gguf"], "model"), CommandArgument("-c", ["4096"])])
     settings.last_command = command.to_dict()
     settings.save()
@@ -17,6 +17,8 @@ def test_save_restore_and_clear_builder_state(tmp_path, monkeypatch):
     assert restored.llama_cpp_folder == "llama.cpp"
     assert restored.llama_server_selected == "llama-server"
     assert restored.llama_fit_params_executable == "llama-fit-params"
+    assert restored.llama_bench_executable == "llama-bench"
+    assert restored.benchmark_prompt_tokens == 768
     assert restored_command.model_path() == Path("missing.gguf")
     assert not restored_command.model_path().exists()
     restored_command.reset()

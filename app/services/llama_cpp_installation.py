@@ -19,15 +19,16 @@ class LlamaCppInstallation:
     folder: Path
     server: DetectedTool
     fit_params: DetectedTool
+    bench: DetectedTool
 
     def tool(self, name: str) -> DetectedTool:
-        return {"llama-server": self.server, "llama-fit-params": self.fit_params}[name]
+        return {"llama-server": self.server, "llama-fit-params": self.fit_params, "llama-bench": self.bench}[name]
 
 
 class LlamaCppInstallationService:
     """Find llama.cpp executables only underneath the explicitly selected root."""
 
-    TOOL_NAMES = ("llama-server", "llama-fit-params")
+    TOOL_NAMES = ("llama-server", "llama-fit-params", "llama-bench")
     BUILD_DIRS = (
         Path("bin"), Path("bin/Release"), Path("bin/Debug"),
         Path("build/bin"), Path("build/bin/Release"), Path("build/bin/Debug"),
@@ -57,6 +58,7 @@ class LlamaCppInstallationService:
             root,
             DetectedTool("llama-server", tuple(sorted(candidates["llama-server"], key=cls._sort_key))),
             DetectedTool("llama-fit-params", tuple(sorted(candidates["llama-fit-params"], key=cls._sort_key))),
+            DetectedTool("llama-bench", tuple(sorted(candidates["llama-bench"], key=cls._sort_key))),
         )
 
     @classmethod
@@ -69,6 +71,10 @@ class LlamaCppInstallationService:
     @classmethod
     def active_fit_params(cls, settings) -> str:
         return cls._active_discovered(settings.llama_fit_params_executable, settings.llama_cpp_folder, "llama-fit-params")
+
+    @classmethod
+    def active_bench(cls, settings) -> str:
+        return cls._active_discovered(settings.llama_bench_executable, settings.llama_cpp_folder, "llama-bench")
 
     @classmethod
     def _active_discovered(cls, selected: str, folder: str, tool: str) -> str:

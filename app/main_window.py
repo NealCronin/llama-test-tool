@@ -18,12 +18,15 @@ from app.services.llama_swap_service import DuplicateModelError, LlamaSwapError,
 from app.services.validation import validate_command
 from app.services.llama_cpp_installation import LlamaCppInstallationService
 from app.services.memory_test_service import MemoryTestService
+from app.services.benchmark_service import BenchmarkService
 from app.settings import AppSettings
 from app.widgets.command_builder import CommandBuilder
 from app.widgets.config_viewer import ConfigViewer
 from app.widgets.output_console import OutputConsole
 from app.widgets.memory_options import MemoryTestOptionsDialog
 from app.widgets.memory_results import MemoryResultsDialog
+from app.widgets.benchmark_options import BenchmarkOptionsDialog
+from app.widgets.benchmark_results import BenchmarkResultsDialog
 
 
 class SettingsPage(QWidget):
@@ -63,10 +66,12 @@ class SettingsPage(QWidget):
         detected_form = QFormLayout(detected)
         self.server_combo = QComboBox()
         self.fit_combo = QComboBox()
+        self.bench_combo = QComboBox()
         self.rescan = QPushButton("Rescan")
         self.rescan.clicked.connect(self.rescan_tools)
         detected_form.addRow("llama-server", self.server_combo)
         detected_form.addRow("llama-fit-params", self.fit_combo)
+        detected_form.addRow("llama-bench", self.bench_combo)
         detected_form.addRow(self.rescan)
         layout.addWidget(detected)
 
@@ -97,6 +102,7 @@ class SettingsPage(QWidget):
         installation = LlamaCppInstallationService.discover(self.fields["llama_cpp_folder"].text().strip())
         self._populate_tool_combo(self.server_combo, installation.server.paths, self.settings.llama_server_selected)
         self._populate_tool_combo(self.fit_combo, installation.fit_params.paths, self.settings.llama_fit_params_executable)
+        self._populate_tool_combo(self.bench_combo, installation.bench.paths, self.settings.llama_bench_executable)
 
     @staticmethod
     def _populate_tool_combo(combo: QComboBox, paths, selected: str) -> None:
@@ -118,6 +124,7 @@ class SettingsPage(QWidget):
             setattr(self.settings, key, field.text().strip())
         self.settings.llama_server_selected = self.server_combo.currentData() or ""
         self.settings.llama_fit_params_executable = self.fit_combo.currentData() or ""
+        self.settings.llama_bench_executable = self.bench_combo.currentData() or ""
         try:
             self.settings.backup_limit = max(1, int(self.backup_limit.text()))
         except ValueError:
@@ -167,6 +174,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.settings_page, "Settings")
         self.setCentralWidget(self.tabs)
         self.runner = CommandRunner(self)
+        self.benchmark_service = BenchmarkService(self)
         self.memory_service = MemoryTestService(self)
         self.builder.changed.connect(self.persist_builder)
         self.builder.test_requested.connect(self.test_command)
@@ -174,6 +182,9 @@ class MainWindow(QMainWindow):
         self.builder.memory_test_requested.connect(self.memory_test)
         self.builder.memory_options_requested.connect(self.memory_options)
         self.builder.memory_cancel_requested.connect(self.memory_service.cancel)
+        self.builder.benchmark_requested.connect(self.benchmark)
+        self.builder.benchmark_options_requested.connect(self.benchmark_options)
+        self.builder.benchmark_cancel_requested.connect(self.benchmark_service.cancel)
         self.builder.add_to_swap_requested.connect(self.add_to_swap)
         self.viewer.load_requested.connect(self.load_from_swap)
         self.viewer.status.connect(lambda message: self.statusBar().showMessage(message, 5_000))
@@ -181,6 +192,8 @@ class MainWindow(QMainWindow):
         self.runner.state_changed.connect(self._process_state)
         self.memory_service.state_changed.connect(self._memory_state)
         self.memory_service.completed.connect(self._memory_complete)
+        self.benchmark_service.state_changed.connect(self._benchmark_state)
+        self.benchmark_service.completed.connect(self._benchmark_complete)
         self.statusBar().showMessage("Ready")
 
     def _create_menu(self) -> None:
@@ -260,6 +273,39 @@ class MainWindow(QMainWindow):
         dialog = MemoryResultsDialog(result, self)
         dialog.apply_requested.connect(self.apply_fitted_arguments)
         dialog.exec()
+
+    def benchmark_options(self) -> None:
+        dialog = BenchmarkOptionsDialog(self.settings, self)
+        if dialog.exec():
+            try:
+                dialog.save_to(self.settings)
+            except ValueError as error:
+                QMessageBox.warning(self, "Benchmark Options", str(error))
+            else:
+                self.statusBar().showMessage("Benchmark options saved.", 5_000)
+
+    def benchmark(self) -> None:
+        issues = validate_command(self.builder.command, self.catalog)
+        errors = [issue.message for issue in issues if issue.severity == "error"]
+        if errors:
+            QMessageBox.warning(self, "Benchmark", "\n".join(errors))
+            return
+        dialog = BenchmarkOptionsDialog(self.settings, self)
+        if not dialog.exec():
+            return
+        try:
+            options = dialog.save_to(self.settings)
+            self.benchmark_service.start(self.builder.command, LlamaCppInstallationService.active_bench(self.settings), self.catalog, options)
+        except (RuntimeError, ValueError) as error:
+            QMessageBox.warning(self, "Benchmark", str(error))
+
+    def _benchmark_state(self, state: str) -> None:
+        self.builder.set_benchmark_running(state not in {"Benchmark complete", "Benchmark failed"})
+        self.statusBar().showMessage(state)
+
+    def _benchmark_complete(self, result) -> None:
+        self.builder.set_benchmark_running(False)
+        BenchmarkResultsDialog(result, self).exec()
 
     def apply_fitted_arguments(self, tokens: tuple[str, ...]) -> None:
         updates: list[tuple[object, list[str]]] = []
@@ -360,4 +406,6 @@ class MainWindow(QMainWindow):
             self.runner.stop()
         if self.memory_service.running:
             self.memory_service.cancel()
+        if self.benchmark_service.running:
+            self.benchmark_service.cancel()
         super().closeEvent(event)
