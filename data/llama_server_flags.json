@@ -1,0 +1,4156 @@
+{
+  "source": "llama.cpp server README",
+  "flags": [
+    {
+      "canonical_name": "--help",
+      "aliases": [
+        "-h",
+        "--help",
+        "--usage"
+      ],
+      "description": "print usage and exit",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--version",
+      "aliases": [
+        "--version"
+      ],
+      "description": "show version and build info",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cache-list",
+      "aliases": [
+        "-cl",
+        "--cache-list"
+      ],
+      "description": "show list of models in cache",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--completion-bash",
+      "aliases": [
+        "--completion-bash"
+      ],
+      "description": "print source-able bash completion script for llama.cpp",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--threads",
+      "aliases": [
+        "-t",
+        "--threads"
+      ],
+      "description": "number of CPU threads to use during generation (default: -1) (env: LLAMA_ARG_THREADS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--threads-batch",
+      "aliases": [
+        "-tb",
+        "--threads-batch"
+      ],
+      "description": "number of threads to use during batch and prompt processing (default: same as --threads)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cpu-mask",
+      "aliases": [
+        "-C",
+        "--cpu-mask"
+      ],
+      "description": "CPU affinity mask: arbitrarily long hex. Complements cpu-range (default: \"\")",
+      "parameter_count": 1,
+      "parameter_names": [
+        "M"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cpu-range",
+      "aliases": [
+        "-Cr",
+        "--cpu-range"
+      ],
+      "description": "range of CPUs for affinity. Complements --cpu-mask",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cpu-strict",
+      "aliases": [
+        "--cpu-strict"
+      ],
+      "description": "use strict CPU placement (default: 0)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "0\\|1"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--prio",
+      "aliases": [
+        "--prio"
+      ],
+      "description": "set process/thread priority : low(-1), normal(0), medium(1), high(2), realtime(3) (default: 0)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--poll",
+      "aliases": [
+        "--poll"
+      ],
+      "description": "use polling level to wait for work (0 - no polling, default: 50)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "0...100"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cpu-mask-batch",
+      "aliases": [
+        "-Cb",
+        "--cpu-mask-batch"
+      ],
+      "description": "CPU affinity mask: arbitrarily long hex. Complements cpu-range-batch (default: same as --cpu-mask)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "M"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cpu-range-batch",
+      "aliases": [
+        "-Crb",
+        "--cpu-range-batch"
+      ],
+      "description": "ranges of CPUs for affinity. Complements --cpu-mask-batch",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cpu-strict-batch",
+      "aliases": [
+        "--cpu-strict-batch"
+      ],
+      "description": "use strict CPU placement (default: same as --cpu-strict)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "0\\|1"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--prio-batch",
+      "aliases": [
+        "--prio-batch"
+      ],
+      "description": "set process/thread priority : 0-normal, 1-medium, 2-high, 3-realtime (default: 0)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--poll-batch",
+      "aliases": [
+        "--poll-batch"
+      ],
+      "description": "use polling to wait for work (default: same as --poll)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "0\\|1"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--ctx-size",
+      "aliases": [
+        "-c",
+        "--ctx-size"
+      ],
+      "description": "size of the prompt context (default: 0, 0 = loaded from model) (env: LLAMA_ARG_CTX_SIZE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--predict",
+      "aliases": [
+        "-n",
+        "--predict",
+        "--n-predict"
+      ],
+      "description": "number of tokens to predict (default: -1, -1 = infinity) (env: LLAMA_ARG_N_PREDICT)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--batch-size",
+      "aliases": [
+        "-b",
+        "--batch-size"
+      ],
+      "description": "logical maximum batch size (default: 2048) (env: LLAMA_ARG_BATCH)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--ubatch-size",
+      "aliases": [
+        "-ub",
+        "--ubatch-size"
+      ],
+      "description": "physical maximum batch size (default: 512) (env: LLAMA_ARG_UBATCH)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--keep",
+      "aliases": [
+        "--keep"
+      ],
+      "description": "number of tokens to keep from the initial prompt (default: 0, -1 = all)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--swa-full",
+      "aliases": [
+        "--swa-full"
+      ],
+      "description": "use full-size SWA cache (default: false) (more info) (env: LLAMA_ARG_SWA_FULL)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--flash-attn",
+      "aliases": [
+        "-fa",
+        "--flash-attn"
+      ],
+      "description": "set Flash Attention use ('on', 'off', or 'auto', default: 'auto') (env: LLAMA_ARG_FLASH_ATTN)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "on\\|off\\|auto"
+      ],
+      "optional_parameter": true,
+      "choices": [
+        "on",
+        "off",
+        "auto"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--perf",
+      "aliases": [
+        "--perf",
+        "--no-perf"
+      ],
+      "description": "whether to enable internal libllama performance timings (default: false) (env: LLAMA_ARG_PERF)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--escape",
+      "aliases": [
+        "-e",
+        "--escape",
+        "--no-escape"
+      ],
+      "description": "whether to process escapes sequences (\\n, \\r, \\t, \\', \\\", \\\\) (default: true)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--rope-scaling",
+      "aliases": [
+        "--rope-scaling"
+      ],
+      "description": "RoPE frequency scaling method, defaults to linear unless specified by the model (env: LLAMA_ARG_ROPE_SCALING_TYPE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "none,linear,yarn"
+      ],
+      "optional_parameter": false,
+      "choices": [
+        "none",
+        "linear",
+        "yarn"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--rope-scale",
+      "aliases": [
+        "--rope-scale"
+      ],
+      "description": "RoPE context scaling factor, expands context by a factor of N (env: LLAMA_ARG_ROPE_SCALE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--rope-freq-base",
+      "aliases": [
+        "--rope-freq-base"
+      ],
+      "description": "RoPE base frequency, used by NTK-aware scaling (default: loaded from model) (env: LLAMA_ARG_ROPE_FREQ_BASE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--rope-freq-scale",
+      "aliases": [
+        "--rope-freq-scale"
+      ],
+      "description": "RoPE frequency scaling factor, expands context by a factor of 1/N (env: LLAMA_ARG_ROPE_FREQ_SCALE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--yarn-orig-ctx",
+      "aliases": [
+        "--yarn-orig-ctx"
+      ],
+      "description": "YaRN: original context size of model (default: 0 = model training context size) (env: LLAMA_ARG_YARN_ORIG_CTX)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--yarn-ext-factor",
+      "aliases": [
+        "--yarn-ext-factor"
+      ],
+      "description": "YaRN: extrapolation mix factor (default: -1.00, 0.0 = full interpolation) (env: LLAMA_ARG_YARN_EXT_FACTOR)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--yarn-attn-factor",
+      "aliases": [
+        "--yarn-attn-factor"
+      ],
+      "description": "YaRN: scale sqrt(t) or attention magnitude (default: -1.00) (env: LLAMA_ARG_YARN_ATTN_FACTOR)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--yarn-beta-slow",
+      "aliases": [
+        "--yarn-beta-slow"
+      ],
+      "description": "YaRN: high correction dim or alpha (default: -1.00) (env: LLAMA_ARG_YARN_BETA_SLOW)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--yarn-beta-fast",
+      "aliases": [
+        "--yarn-beta-fast"
+      ],
+      "description": "YaRN: low correction dim or beta (default: -1.00) (env: LLAMA_ARG_YARN_BETA_FAST)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--kv-offload",
+      "aliases": [
+        "-kvo",
+        "--kv-offload",
+        "-nkvo",
+        "--no-kv-offload"
+      ],
+      "description": "whether to enable KV cache offloading (default: enabled) (env: LLAMA_ARG_KV_OFFLOAD)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--repack",
+      "aliases": [
+        "--repack",
+        "-nr",
+        "--no-repack"
+      ],
+      "description": "whether to enable weight repacking (default: enabled) (env: LLAMA_ARG_REPACK)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--no-host",
+      "aliases": [
+        "--no-host"
+      ],
+      "description": "bypass host buffer allowing extra buffers to be used (env: LLAMA_ARG_NO_HOST)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cache-type-k",
+      "aliases": [
+        "-ctk",
+        "--cache-type-k"
+      ],
+      "description": "KV cache data type for K allowed values: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1 (default: f16) (env: LLAMA_ARG_CACHE_TYPE_K)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "TYPE"
+      ],
+      "optional_parameter": false,
+      "choices": [
+        "f32",
+        "f16",
+        "bf16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl",
+        "q5_0",
+        "q5_1"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cache-type-v",
+      "aliases": [
+        "-ctv",
+        "--cache-type-v"
+      ],
+      "description": "KV cache data type for V allowed values: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1 (default: f16) (env: LLAMA_ARG_CACHE_TYPE_V)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "TYPE"
+      ],
+      "optional_parameter": false,
+      "choices": [
+        "f32",
+        "f16",
+        "bf16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl",
+        "q5_0",
+        "q5_1"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--defrag-thold",
+      "aliases": [
+        "-dt",
+        "--defrag-thold"
+      ],
+      "description": "KV cache defragmentation threshold (DEPRECATED) (env: LLAMA_ARG_DEFRAG_THOLD)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--rpc",
+      "aliases": [
+        "--rpc"
+      ],
+      "description": "comma-separated list of RPC servers (host:port) (env: LLAMA_ARG_RPC)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "SERVERS"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mlock",
+      "aliases": [
+        "--mlock"
+      ],
+      "description": "DEPRECATED in favor of `--load-mode`: force system to keep model in RAM rather than swapping or compressing (env: LLAMA_ARG_MLOCK)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mmap",
+      "aliases": [
+        "--mmap",
+        "--no-mmap"
+      ],
+      "description": "DEPRECATED in favor of `--load-mode`: whether to memory-map model. (if mmap disabled, slower load but may reduce pageouts if not using mlock) (env: LLAMA_ARG_MMAP)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--direct-io",
+      "aliases": [
+        "-dio",
+        "--direct-io",
+        "-ndio",
+        "--no-direct-io"
+      ],
+      "description": "DEPRECATED in favor of `--load-mode`: use DirectIO if available (env: LLAMA_ARG_DIO)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--load-mode",
+      "aliases": [
+        "-lm",
+        "--load-mode"
+      ],
+      "description": "model loading mode (default: auto) - auto: mmap, unless a device does not support it - none: no special loading mode - mmap: memory-map model (if mmap disabled, slower load but may reduce pageouts if not using mlock) - mlock: force system to keep model in RAM rather than swapping or compressing - mmap+mlock: mmap + force system to keep model in RAM rather than swapping or compressing - dio: use DirectIO if available  (env: LLAMA_ARG_LOAD_MODE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "MODE"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--numa",
+      "aliases": [
+        "--numa"
+      ],
+      "description": "attempt optimizations that help on some NUMA systems - distribute: spread execution evenly over all nodes - isolate: only spawn threads on CPUs on the node that execution started on - numactl: use the CPU map provided by numactl if run without this previously, it is recommended to drop the system page cache before using this see https://github.com/ggml-org/llama.cpp/issues/1437 (env: LLAMA_ARG_NUMA)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "TYPE"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--device",
+      "aliases": [
+        "-dev",
+        "--device"
+      ],
+      "description": "comma-separated list of devices to use for offloading (none = don't offload) use --list-devices to see a list of available devices (env: LLAMA_ARG_DEVICE)",
+      "parameter_count": 3,
+      "parameter_names": [
+        "dev1",
+        "dev2",
+        ".."
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--list-devices",
+      "aliases": [
+        "--list-devices"
+      ],
+      "description": "print list of available devices and exit",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--override-tensor",
+      "aliases": [
+        "-ot",
+        "--override-tensor"
+      ],
+      "description": "override tensor buffer type (env: LLAMA_ARG_OVERRIDE_TENSOR)",
+      "parameter_count": 5,
+      "parameter_names": [
+        "tensor",
+        "name",
+        "pattern",
+        "buffer",
+        "type"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cpu-moe",
+      "aliases": [
+        "-cmoe",
+        "--cpu-moe"
+      ],
+      "description": "keep all Mixture of Experts (MoE) weights in the CPU (env: LLAMA_ARG_CPU_MOE)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--n-cpu-moe",
+      "aliases": [
+        "-ncmoe",
+        "--n-cpu-moe"
+      ],
+      "description": "keep the Mixture of Experts (MoE) weights of the first N layers in the CPU (env: LLAMA_ARG_N_CPU_MOE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--gpu-layers",
+      "aliases": [
+        "-ngl",
+        "--gpu-layers",
+        "--n-gpu-layers"
+      ],
+      "description": "max. number of layers to store in VRAM, either an exact number, 'auto', or 'all' (default: auto) (env: LLAMA_ARG_N_GPU_LAYERS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--split-mode",
+      "aliases": [
+        "-sm",
+        "--split-mode"
+      ],
+      "description": "how to split the model across multiple GPUs, one of: - none: use one GPU only - layer (default): split layers and KV across GPUs (pipelined) - row: split weight across GPUs by rows (parallelized) - tensor: split weights and KV across GPUs (parallelized, EXPERIMENTAL) (env: LLAMA_ARG_SPLIT_MODE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "none,layer,row,tensor"
+      ],
+      "optional_parameter": false,
+      "choices": [
+        "none",
+        "layer",
+        "row",
+        "tensor",
+        "parallelized",
+        "EXPERIMENTAL"
+      ],
+      "value_type": "string",
+      "repeatable": true,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--tensor-split",
+      "aliases": [
+        "-ts",
+        "--tensor-split"
+      ],
+      "description": "fraction of the model to offload to each GPU, comma-separated list of proportions, e.g. 3,1 (env: LLAMA_ARG_TENSOR_SPLIT)",
+      "parameter_count": 3,
+      "parameter_names": [
+        "N0",
+        "N1",
+        "N2"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--main-gpu",
+      "aliases": [
+        "-mg",
+        "--main-gpu"
+      ],
+      "description": "the GPU to use for the model (with split-mode = none), or for intermediate results and KV (with split-mode = row) (default: 0) (env: LLAMA_ARG_MAIN_GPU)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "INDEX"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--fit",
+      "aliases": [
+        "-fit",
+        "--fit"
+      ],
+      "description": "whether to adjust unset arguments to fit in device memory ('on' or 'off', default: 'on') (env: LLAMA_ARG_FIT)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "on\\|off"
+      ],
+      "optional_parameter": true,
+      "choices": [
+        "on",
+        "off"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--fit-target",
+      "aliases": [
+        "-fitt",
+        "--fit-target"
+      ],
+      "description": "target margin per device for --fit, comma-separated list of values, single value is broadcast across all devices, default: 1024 (env: LLAMA_ARG_FIT_TARGET)",
+      "parameter_count": 6,
+      "parameter_names": [
+        "M",
+        "B0",
+        "M",
+        "B1",
+        "M",
+        "B2"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--fit-ctx",
+      "aliases": [
+        "-fitc",
+        "--fit-ctx"
+      ],
+      "description": "minimum ctx size that can be set by --fit option, default: 4096 (env: LLAMA_ARG_FIT_CTX)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--check-tensors",
+      "aliases": [
+        "--check-tensors"
+      ],
+      "description": "check model tensor data for invalid values (default: false)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--override-kv",
+      "aliases": [
+        "--override-kv"
+      ],
+      "description": "advanced option to override model metadata by key. to specify multiple overrides, either use comma-separated values. types: int, float, bool, str. example: --override-kv tokenizer.ggml.add_bos_token=bool:false,tokenizer.ggml.add_eos_token=bool:false",
+      "parameter_count": 3,
+      "parameter_names": [
+        "KEY",
+        "TYPE",
+        "VALUE"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": true,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--op-offload",
+      "aliases": [
+        "--op-offload",
+        "--no-op-offload"
+      ],
+      "description": "whether to offload host tensor operations to device (default: true)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--lora",
+      "aliases": [
+        "--lora"
+      ],
+      "description": "path to LoRA adapter (use comma-separated values to load multiple adapters)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": true,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--lora-scaled",
+      "aliases": [
+        "--lora-scaled"
+      ],
+      "description": "path to LoRA adapter with user defined scaling (format: FNAME:SCALE,...) note: use comma-separated values",
+      "parameter_count": 2,
+      "parameter_names": [
+        "FNAME",
+        "SCALE"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": true,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--control-vector",
+      "aliases": [
+        "--control-vector"
+      ],
+      "description": "add a control vector note: use comma-separated values to add multiple control vectors",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": true,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--control-vector-scaled",
+      "aliases": [
+        "--control-vector-scaled"
+      ],
+      "description": "add a control vector with user defined scaling SCALE note: use comma-separated values (format: FNAME:SCALE,...)",
+      "parameter_count": 2,
+      "parameter_names": [
+        "FNAME",
+        "SCALE"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": true,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--control-vector-layer-range",
+      "aliases": [
+        "--control-vector-layer-range"
+      ],
+      "description": "layer range to apply the control vector(s) to, start and end inclusive",
+      "parameter_count": 2,
+      "parameter_names": [
+        "START",
+        "END"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--model",
+      "aliases": [
+        "-m",
+        "--model"
+      ],
+      "description": "model path to load (env: LLAMA_ARG_MODEL)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": "model"
+    },
+    {
+      "canonical_name": "--model-url",
+      "aliases": [
+        "-mu",
+        "--model-url"
+      ],
+      "description": "model download url (default: unused) (env: LLAMA_ARG_MODEL_URL)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "MODEL_URL"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--docker-repo",
+      "aliases": [
+        "-dr",
+        "--docker-repo"
+      ],
+      "description": "Docker Hub model repository. repo is optional, default to ai/. quant is optional, default to :latest. example: gemma3 (default: unused) (env: LLAMA_ARG_DOCKER_REPO)",
+      "parameter_count": 3,
+      "parameter_names": [
+        "repo>/",
+        "model",
+        ":quant"
+      ],
+      "optional_parameter": true,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--hf-repo",
+      "aliases": [
+        "-hf",
+        "-hfr",
+        "--hf-repo"
+      ],
+      "description": "Hugging Face model repository; quant is optional, case-insensitive, default to Q4_K_M, or falls back to the first file in the repo if Q4_K_M doesn't exist. mmproj is also downloaded automatically if available. to disable, add --no-mmproj example: ggml-org/GLM-4.7-Flash-GGUF:Q4_K_M (default: unused) (env: LLAMA_ARG_HF_REPO)",
+      "parameter_count": 3,
+      "parameter_names": [
+        "user",
+        "model",
+        ":quant"
+      ],
+      "optional_parameter": true,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--hf-file",
+      "aliases": [
+        "-hff",
+        "--hf-file"
+      ],
+      "description": "Hugging Face model file. If specified, it will override the quant in --hf-repo (default: unused) (env: LLAMA_ARG_HF_FILE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FILE"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--hf-token",
+      "aliases": [
+        "-hft",
+        "--hf-token"
+      ],
+      "description": "Hugging Face access token (default: value from HF_TOKEN environment variable) (env: HF_TOKEN)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "TOKEN"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--log-disable",
+      "aliases": [
+        "--log-disable"
+      ],
+      "description": "Log disable",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--log-file",
+      "aliases": [
+        "--log-file"
+      ],
+      "description": "Log to file (env: LLAMA_ARG_LOG_FILE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--log-colors",
+      "aliases": [
+        "--log-colors"
+      ],
+      "description": "Set colored logging ('on', 'off', or 'auto', default: 'auto') 'auto' enables colors when output is to a terminal (env: LLAMA_ARG_LOG_COLORS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "on\\|off\\|auto"
+      ],
+      "optional_parameter": true,
+      "choices": [
+        "on",
+        "off",
+        "auto"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--verbose",
+      "aliases": [
+        "-v",
+        "--verbose",
+        "--log-verbose"
+      ],
+      "description": "Set verbosity level to infinity (i.e. log all messages, useful for debugging)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--offline",
+      "aliases": [
+        "--offline"
+      ],
+      "description": "Offline mode: forces use of cache, prevents network access (env: LLAMA_ARG_OFFLINE)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--verbosity",
+      "aliases": [
+        "-lv",
+        "--verbosity",
+        "--log-verbosity"
+      ],
+      "description": "Set the verbosity threshold. Messages with a higher verbosity will be ignored. Values:  - 0: generic output  - 1: error  - 2: warning  - 3: info  - 4: trace (more info)  - 5: debug (default: 3)  (env: LLAMA_ARG_LOG_VERBOSITY)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--log-prefix",
+      "aliases": [
+        "--log-prefix",
+        "--no-log-prefix"
+      ],
+      "description": "Enable prefix in log messages (env: LLAMA_ARG_LOG_PREFIX)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--log-timestamps",
+      "aliases": [
+        "--log-timestamps",
+        "--no-log-timestamps"
+      ],
+      "description": "Enable timestamps in log messages (env: LLAMA_ARG_LOG_TIMESTAMPS)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-type-k",
+      "aliases": [
+        "--spec-draft-type-k",
+        "-ctkd",
+        "--cache-type-k-draft"
+      ],
+      "description": "KV cache data type for K for the draft model allowed values: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1 (default: f16) (env: LLAMA_ARG_SPEC_DRAFT_CACHE_TYPE_K)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "TYPE"
+      ],
+      "optional_parameter": false,
+      "choices": [
+        "f32",
+        "f16",
+        "bf16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl",
+        "q5_0",
+        "q5_1"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-type-v",
+      "aliases": [
+        "--spec-draft-type-v",
+        "-ctvd",
+        "--cache-type-v-draft"
+      ],
+      "description": "KV cache data type for V for the draft model allowed values: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1 (default: f16) (env: LLAMA_ARG_SPEC_DRAFT_CACHE_TYPE_V)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "TYPE"
+      ],
+      "optional_parameter": false,
+      "choices": [
+        "f32",
+        "f16",
+        "bf16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl",
+        "q5_0",
+        "q5_1"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--samplers",
+      "aliases": [
+        "--samplers"
+      ],
+      "description": "samplers that will be used for generation in the order, separated by ';' (default: penalties;dry;top_n_sigma;top_k;typ_p;top_p;min_p;xtc;temperature)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "SAMPLERS"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--seed",
+      "aliases": [
+        "-s",
+        "--seed"
+      ],
+      "description": "RNG seed (default: -1, use random seed for -1)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "SEED"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--sampler-seq",
+      "aliases": [
+        "--sampler-seq",
+        "--sampling-seq"
+      ],
+      "description": "simplified sequence for samplers that will be used (default: edskypmxt)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "SEQUENCE"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--ignore-eos",
+      "aliases": [
+        "--ignore-eos"
+      ],
+      "description": "ignore end of stream token and continue generating (implies --logit-bias EOS-inf)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--temp",
+      "aliases": [
+        "--temp",
+        "--temperature"
+      ],
+      "description": "temperature (default: 0.80)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--top-k",
+      "aliases": [
+        "--top-k"
+      ],
+      "description": "top-k sampling (default: 40, 0 = disabled) (env: LLAMA_ARG_TOP_K)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--top-p",
+      "aliases": [
+        "--top-p"
+      ],
+      "description": "top-p sampling (default: 0.95, 1.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--min-p",
+      "aliases": [
+        "--min-p"
+      ],
+      "description": "min-p sampling (default: 0.05, 0.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--top-nsigma",
+      "aliases": [
+        "--top-nsigma",
+        "--top-n-sigma"
+      ],
+      "description": "top-n-sigma sampling (default: -1.00, -1.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--xtc-probability",
+      "aliases": [
+        "--xtc-probability"
+      ],
+      "description": "xtc probability (default: 0.00, 0.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--xtc-threshold",
+      "aliases": [
+        "--xtc-threshold"
+      ],
+      "description": "xtc threshold (default: 0.10, 1.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--typical",
+      "aliases": [
+        "--typical",
+        "--typical-p"
+      ],
+      "description": "locally typical sampling, parameter p (default: 1.00, 1.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--repeat-last-n",
+      "aliases": [
+        "--repeat-last-n"
+      ],
+      "description": "last n tokens to consider for penalize (default: 64, 0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--repeat-penalty",
+      "aliases": [
+        "--repeat-penalty"
+      ],
+      "description": "penalize repeat sequence of tokens (default: 1.00, 1.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--presence-penalty",
+      "aliases": [
+        "--presence-penalty"
+      ],
+      "description": "repeat alpha presence penalty (default: 0.00, 0.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--frequency-penalty",
+      "aliases": [
+        "--frequency-penalty"
+      ],
+      "description": "repeat alpha frequency penalty (default: 0.00, 0.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--dry-multiplier",
+      "aliases": [
+        "--dry-multiplier"
+      ],
+      "description": "set DRY sampling multiplier (default: 0.00, 0.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--dry-base",
+      "aliases": [
+        "--dry-base"
+      ],
+      "description": "set DRY sampling base value (default: 1.75)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--dry-allowed-length",
+      "aliases": [
+        "--dry-allowed-length"
+      ],
+      "description": "set allowed length for DRY sampling (default: 2)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--dry-penalty-last-n",
+      "aliases": [
+        "--dry-penalty-last-n"
+      ],
+      "description": "set DRY penalty for the last n tokens (default: 64, 0 = disable)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--dry-sequence-breaker",
+      "aliases": [
+        "--dry-sequence-breaker"
+      ],
+      "description": "add sequence breaker for DRY sampling, clearing out default breakers ('\\n', ':', '\"', '*') in the process; use \"none\" to not use any sequence breakers",
+      "parameter_count": 1,
+      "parameter_names": [
+        "STRING"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--adaptive-target",
+      "aliases": [
+        "--adaptive-target"
+      ],
+      "description": "adaptive-p: select tokens near this probability (valid range 0.0 to 1.0; negative = disabled) (default: -1.00) (more info)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--adaptive-decay",
+      "aliases": [
+        "--adaptive-decay"
+      ],
+      "description": "adaptive-p: decay rate for target adaptation over time. lower values are more reactive, higher values are more stable. (valid range 0.0 to 0.99) (default: 0.90)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--dynatemp-range",
+      "aliases": [
+        "--dynatemp-range"
+      ],
+      "description": "dynamic temperature range (default: 0.00, 0.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--dynatemp-exp",
+      "aliases": [
+        "--dynatemp-exp"
+      ],
+      "description": "dynamic temperature exponent (default: 1.00)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mirostat",
+      "aliases": [
+        "--mirostat"
+      ],
+      "description": "use Mirostat sampling. Top K, Nucleus and Locally Typical samplers are ignored if used. (default: 0, 0 = disabled, 1 = Mirostat, 2 = Mirostat 2.0)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mirostat-lr",
+      "aliases": [
+        "--mirostat-lr"
+      ],
+      "description": "Mirostat learning rate, parameter eta (default: 0.10)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mirostat-ent",
+      "aliases": [
+        "--mirostat-ent"
+      ],
+      "description": "Mirostat target entropy, parameter tau (default: 5.00)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--logit-bias",
+      "aliases": [
+        "-l",
+        "--logit-bias"
+      ],
+      "description": "modifies the likelihood of token appearing in the completion, i.e. `--logit-bias 15043+1` to increase likelihood of token ' Hello', or `--logit-bias 15043-1` to decrease likelihood of token ' Hello'",
+      "parameter_count": 2,
+      "parameter_names": [
+        "TOKEN_ID",
+        "BIAS"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--grammar",
+      "aliases": [
+        "--grammar"
+      ],
+      "description": "BNF-like grammar to constrain generations (see samples in grammars/ dir)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "GRAMMAR"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--grammar-file",
+      "aliases": [
+        "--grammar-file"
+      ],
+      "description": "file to read grammar from",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--json-schema",
+      "aliases": [
+        "-j",
+        "--json-schema"
+      ],
+      "description": "JSON schema to constrain generations (https://json-schema.org/), e.g. `{}` for any JSON object For schemas w/ external $refs, use --grammar + example/json_schema_to_grammar.py instead",
+      "parameter_count": 1,
+      "parameter_names": [
+        "SCHEMA"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--json-schema-file",
+      "aliases": [
+        "-jf",
+        "--json-schema-file"
+      ],
+      "description": "File containing a JSON schema to constrain generations (https://json-schema.org/), e.g. `{}` for any JSON object For schemas w/ external $refs, use --grammar + example/json_schema_to_grammar.py instead",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FILE"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--backend-sampling",
+      "aliases": [
+        "-bs",
+        "--backend-sampling"
+      ],
+      "description": "enable backend sampling (experimental) (default: disabled) (env: LLAMA_ARG_BACKEND_SAMPLING)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--lookup-cache-static",
+      "aliases": [
+        "-lcs",
+        "--lookup-cache-static"
+      ],
+      "description": "path to static lookup cache to use for lookup decoding (not updated by generation)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--lookup-cache-dynamic",
+      "aliases": [
+        "-lcd",
+        "--lookup-cache-dynamic"
+      ],
+      "description": "path to dynamic lookup cache to use for lookup decoding (updated by generation)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--ctx-checkpoints",
+      "aliases": [
+        "-ctxcp",
+        "--ctx-checkpoints",
+        "--swa-checkpoints"
+      ],
+      "description": "max number of context checkpoints to create per slot (default: 32)(more info) (env: LLAMA_ARG_CTX_CHECKPOINTS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--checkpoint-min-step",
+      "aliases": [
+        "-cms",
+        "--checkpoint-min-step"
+      ],
+      "description": "minimum spacing between context checkpoints in tokens (default: 8192, 0 = no minimum) (env: LLAMA_ARG_CHECKPOINT_MIN_SPACING_NT)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cache-ram",
+      "aliases": [
+        "-cram",
+        "--cache-ram"
+      ],
+      "description": "set the maximum cache size in MiB (default: 8192, -1 - no limit, 0 - disable)(more info) (env: LLAMA_ARG_CACHE_RAM)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--kv-unified",
+      "aliases": [
+        "-kvu",
+        "--kv-unified",
+        "-no-kvu",
+        "--no-kv-unified"
+      ],
+      "description": "use single unified KV buffer shared across all sequences (default: enabled if number of slots is auto) (env: LLAMA_ARG_KV_UNIFIED)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cache-idle-slots",
+      "aliases": [
+        "--cache-idle-slots",
+        "--no-cache-idle-slots"
+      ],
+      "description": "save idle slots to the prompt cache on new task, and clear them when using unified KV (default: enabled, requires cache-ram) (env: LLAMA_ARG_CACHE_IDLE_SLOTS)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--context-shift",
+      "aliases": [
+        "--context-shift",
+        "--no-context-shift"
+      ],
+      "description": "whether to use context shift on infinite text generation (default: disabled) (env: LLAMA_ARG_CONTEXT_SHIFT)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--reverse-prompt",
+      "aliases": [
+        "-r",
+        "--reverse-prompt"
+      ],
+      "description": "halt generation at PROMPT, return control in interactive mode",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PROMPT"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--special",
+      "aliases": [
+        "-sp",
+        "--special"
+      ],
+      "description": "special tokens output enabled (default: false)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--warmup",
+      "aliases": [
+        "--warmup",
+        "--no-warmup"
+      ],
+      "description": "whether to perform warmup with an empty run (default: enabled)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spm-infill",
+      "aliases": [
+        "--spm-infill"
+      ],
+      "description": "use Suffix/Prefix/Middle pattern for infill (instead of Prefix/Suffix/Middle) as some models prefer this. (default: disabled)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--pooling",
+      "aliases": [
+        "--pooling"
+      ],
+      "description": "pooling type for embeddings, use model default if unspecified (env: LLAMA_ARG_POOLING)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "none,mean,cls,last,rank"
+      ],
+      "optional_parameter": false,
+      "choices": [
+        "none",
+        "mean",
+        "cls",
+        "last",
+        "rank"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--parallel",
+      "aliases": [
+        "-np",
+        "--parallel"
+      ],
+      "description": "number of server slots (default: -1, -1 = auto) (env: LLAMA_ARG_N_PARALLEL)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cont-batching",
+      "aliases": [
+        "-cb",
+        "--cont-batching",
+        "-nocb",
+        "--no-cont-batching"
+      ],
+      "description": "whether to enable continuous batching (a.k.a dynamic batching) (default: enabled) (env: LLAMA_ARG_CONT_BATCHING)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mmproj",
+      "aliases": [
+        "-mm",
+        "--mmproj"
+      ],
+      "description": "path to a multimodal projector file. see tools/mtmd/README.md note: if -hf is used, this argument can be omitted (env: LLAMA_ARG_MMPROJ)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FILE"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": "mmproj"
+    },
+    {
+      "canonical_name": "--mmproj-url",
+      "aliases": [
+        "-mmu",
+        "--mmproj-url"
+      ],
+      "description": "URL to a multimodal projector file. see tools/mtmd/README.md (env: LLAMA_ARG_MMPROJ_URL)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "URL"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mmproj-auto",
+      "aliases": [
+        "--mmproj-auto",
+        "--no-mmproj",
+        "--no-mmproj-auto"
+      ],
+      "description": "whether to use multimodal projector file (if available), useful when using -hf (default: enabled) (env: LLAMA_ARG_MMPROJ_AUTO)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mmproj-offload",
+      "aliases": [
+        "--mmproj-offload",
+        "--no-mmproj-offload"
+      ],
+      "description": "whether to enable GPU offloading for multimodal projector (default: enabled) (env: LLAMA_ARG_MMPROJ_OFFLOAD)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--image-min-tokens",
+      "aliases": [
+        "--image-min-tokens"
+      ],
+      "description": "minimum number of tokens each image can take, only used by vision models with dynamic resolution (default: read from model) (env: LLAMA_ARG_IMAGE_MIN_TOKENS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--image-max-tokens",
+      "aliases": [
+        "--image-max-tokens"
+      ],
+      "description": "maximum number of tokens each image can take, only used by vision models with dynamic resolution (default: read from model) (env: LLAMA_ARG_IMAGE_MAX_TOKENS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mtmd-batch-max-tokens",
+      "aliases": [
+        "--mtmd-batch-max-tokens"
+      ],
+      "description": "maximum number of image tokens per batch when encoding images (default: 1024) (env: LLAMA_ARG_MTMD_BATCH_MAX_TOKENS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--alias",
+      "aliases": [
+        "-a",
+        "--alias"
+      ],
+      "description": "set model name aliases, comma-separated (to be used by API) (env: LLAMA_ARG_ALIAS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "STRING"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--tags",
+      "aliases": [
+        "--tags"
+      ],
+      "description": "set model tags, comma-separated (informational, not used for routing) (env: LLAMA_ARG_TAGS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "STRING"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--embd-normalize",
+      "aliases": [
+        "--embd-normalize"
+      ],
+      "description": "normalisation for embeddings (default: 2) (-1=none, 0=max absolute int16, 1=taxicab, 2=euclidean, >2=p-norm)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--host",
+      "aliases": [
+        "--host"
+      ],
+      "description": "ip address to listen, or bind to an UNIX socket if the address ends with .sock (default: 127.0.0.1) (env: LLAMA_ARG_HOST)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "HOST"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--port",
+      "aliases": [
+        "--port"
+      ],
+      "description": "port to listen (default: 8080) (env: LLAMA_ARG_PORT)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PORT"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--reuse-port",
+      "aliases": [
+        "--reuse-port"
+      ],
+      "description": "allow multiple sockets to bind to the same port (default: disabled) (env: LLAMA_ARG_REUSE_PORT)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": true,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--path",
+      "aliases": [
+        "--path"
+      ],
+      "description": "path to serve static files from (default: ) (env: LLAMA_ARG_STATIC_PATH)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PATH"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cors-origins",
+      "aliases": [
+        "--cors-origins"
+      ],
+      "description": "comma-separated list of allowed origins for CORS (default: *) if set to special value 'localhost', reflect the Origin header only if it is localhost (env: LLAMA_ARG_CORS_ORIGINS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "ORIGINS"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cors-methods",
+      "aliases": [
+        "--cors-methods"
+      ],
+      "description": "comma-separated list of allowed methods for CORS (default: GET, POST, DELETE, OPTIONS) (env: LLAMA_ARG_CORS_METHODS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "METHODS"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cors-headers",
+      "aliases": [
+        "--cors-headers"
+      ],
+      "description": "comma-separated list of allowed headers for CORS (default: *) (env: LLAMA_ARG_CORS_HEADERS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "HEADERS"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cors-credentials",
+      "aliases": [
+        "--cors-credentials",
+        "--no-cors-credentials"
+      ],
+      "description": "whether to allow credentials for CORS (default: enabled) note: if this is enabled and --cors-origins is set to * (default), the Origin header will be echoed back, and credentials will always be allowed (env: LLAMA_ARG_CORS_CREDENTIALS)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--api-prefix",
+      "aliases": [
+        "--api-prefix"
+      ],
+      "description": "prefix path the server serves from, without the trailing slash (default: ) (env: LLAMA_ARG_API_PREFIX)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PREFIX"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--ui-config",
+      "aliases": [
+        "--ui-config",
+        "--webui-config"
+      ],
+      "description": "JSON that provides default UI settings (overrides UI defaults) (env: LLAMA_ARG_UI_CONFIG)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "JSON"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--ui-config-file",
+      "aliases": [
+        "--ui-config-file",
+        "--webui-config-file"
+      ],
+      "description": "JSON file that provides default UI settings (overrides UI defaults) (env: LLAMA_ARG_UI_CONFIG_FILE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PATH"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--ui-mcp-proxy",
+      "aliases": [
+        "--ui-mcp-proxy",
+        "--webui-mcp-proxy",
+        "--no-ui-mcp-proxy",
+        "--no-webui-mcp-proxy"
+      ],
+      "description": "experimental: whether to enable MCP CORS proxy - do not enable in untrusted environments (default: disabled) (env: LLAMA_ARG_UI_MCP_PROXY)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--tools",
+      "aliases": [
+        "--tools"
+      ],
+      "description": "experimental: whether to enable server tools for AI agents - do not enable in untrusted environments (default: no tools) specify \"all\" to enable all tools available tools: read_file, file_glob_search, grep_search, exec_shell_command, write_file, edit_file, get_info note: for security reasons, this will limit --cors-origins to localhost by default (env: LLAMA_ARG_TOOLS)",
+      "parameter_count": 2,
+      "parameter_names": [
+        "TOOL1",
+        "TOOL2"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--tools-runtime",
+      "aliases": [
+        "--tools-runtime"
+      ],
+      "description": "experimental: run tools in a separate runtime environment (default: none, use host environment) available options:   'docker:', 'podman:': spin up a new container and reuse it for all invocations, clean up on server exit   'docker-container:', 'podman-container:': use an existing container by ID, won't stop on server exit   'ssh:': run tools on a remote POSIX host over SSH, key-based auth and a trusted host key are required  (env: LLAMA_ARG_TOOLS_RUNTIME)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "OPTION"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mcp-servers-config",
+      "aliases": [
+        "--mcp-servers-config"
+      ],
+      "description": "experimental: path to JSON file with MCP server definitions (Cursor-compatible format) - do not enable in untrusted environments (default: none) note: for security reasons, this will limit --cors-origins to localhost by default (env: LLAMA_ARG_MCP_SERVERS_CONFIG)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PATH"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--mcp-servers-json",
+      "aliases": [
+        "--mcp-servers-json"
+      ],
+      "description": "experimental: inline JSON with MCP server definitions (Cursor-compatible format) - do not enable in untrusted environments (default: none) note: for security reasons, this will limit --cors-origins to localhost by default (env: LLAMA_ARG_MCP_SERVERS_JSON)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "JSON"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--agent",
+      "aliases": [
+        "-ag",
+        "--agent",
+        "-no-ag",
+        "--no-agent"
+      ],
+      "description": "whether to enable CORS proxy and all server tools - do not enable in untrusted environments (default: disabled) note: for security reasons, this will limit --cors-origins to localhost by default (env: LLAMA_ARG_AGENT)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--ui",
+      "aliases": [
+        "--ui",
+        "--webui",
+        "--no-ui",
+        "--no-webui"
+      ],
+      "description": "whether to enable the Web UI (default: enabled) (env: LLAMA_ARG_UI)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--embedding",
+      "aliases": [
+        "--embedding",
+        "--embeddings"
+      ],
+      "description": "restrict to only support embedding use case; use only with dedicated embedding models (default: disabled) (env: LLAMA_ARG_EMBEDDINGS)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--rerank",
+      "aliases": [
+        "--rerank",
+        "--reranking"
+      ],
+      "description": "enable reranking endpoint on server (default: disabled) (env: LLAMA_ARG_RERANKING)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--api-key",
+      "aliases": [
+        "--api-key"
+      ],
+      "description": "API key to use for authentication, multiple keys can be provided as a comma-separated list (default: none) (env: LLAMA_API_KEY)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "KEY"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": true,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--api-key-file",
+      "aliases": [
+        "--api-key-file"
+      ],
+      "description": "path to file containing API keys, one per line; lines starting with a hash are treated as comments (default: none) (env: LLAMA_ARG_API_KEY_FILE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--ssl-key-file",
+      "aliases": [
+        "--ssl-key-file"
+      ],
+      "description": "path to file a PEM-encoded SSL private key (env: LLAMA_ARG_SSL_KEY_FILE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--ssl-cert-file",
+      "aliases": [
+        "--ssl-cert-file"
+      ],
+      "description": "path to file a PEM-encoded SSL certificate (env: LLAMA_ARG_SSL_CERT_FILE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--chat-template-kwargs",
+      "aliases": [
+        "--chat-template-kwargs"
+      ],
+      "description": "sets additional params for the json template parser, must be a valid json object string, e.g. '{\"key1\":\"value1\",\"key2\":\"value2\"}' (env: LLAMA_ARG_CHAT_TEMPLATE_KWARGS)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "STRING"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--timeout",
+      "aliases": [
+        "-to",
+        "--timeout"
+      ],
+      "description": "server read/write timeout in seconds (default: 3600) (env: LLAMA_ARG_TIMEOUT)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--sse-ping-interval",
+      "aliases": [
+        "--sse-ping-interval"
+      ],
+      "description": "server SSE ping interval in seconds (-1 = disabled, default: 30) (env: LLAMA_ARG_SSE_PING_INTERVAL)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--threads-http",
+      "aliases": [
+        "--threads-http"
+      ],
+      "description": "number of threads used to process HTTP requests (default: -1) (env: LLAMA_ARG_THREADS_HTTP)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cache-prompt",
+      "aliases": [
+        "--cache-prompt",
+        "--no-cache-prompt"
+      ],
+      "description": "whether to enable prompt caching (default: enabled) (env: LLAMA_ARG_CACHE_PROMPT)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--cache-reuse",
+      "aliases": [
+        "--cache-reuse"
+      ],
+      "description": "min chunk size to attempt reusing from the cache via KV shifting, requires prompt caching to be enabled (default: 0) (card) (env: LLAMA_ARG_CACHE_REUSE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--metrics",
+      "aliases": [
+        "--metrics"
+      ],
+      "description": "enable prometheus compatible metrics endpoint (default: disabled) (env: LLAMA_ARG_ENDPOINT_METRICS)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--props",
+      "aliases": [
+        "--props"
+      ],
+      "description": "enable changing global properties via POST /props (default: disabled) (env: LLAMA_ARG_ENDPOINT_PROPS)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--slots",
+      "aliases": [
+        "--slots",
+        "--no-slots"
+      ],
+      "description": "expose slots monitoring endpoint (default: enabled) (env: LLAMA_ARG_ENDPOINT_SLOTS)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--slot-save-path",
+      "aliases": [
+        "--slot-save-path"
+      ],
+      "description": "path to save slot kv cache (default: disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PATH"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--media-path",
+      "aliases": [
+        "--media-path"
+      ],
+      "description": "directory for loading local media files; files can be accessed via file:// URLs using relative paths (default: disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PATH"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--models-dir",
+      "aliases": [
+        "--models-dir"
+      ],
+      "description": "directory containing models for the router server (default: disabled) (env: LLAMA_ARG_MODELS_DIR)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PATH"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--models-preset",
+      "aliases": [
+        "--models-preset"
+      ],
+      "description": "path to INI file containing model presets for the router server (default: disabled) (env: LLAMA_ARG_MODELS_PRESET)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PATH"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--models-max",
+      "aliases": [
+        "--models-max"
+      ],
+      "description": "for router server, maximum number of models to load simultaneously (default: 4, 0 = unlimited) (env: LLAMA_ARG_MODELS_MAX)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--models-autoload",
+      "aliases": [
+        "--models-autoload",
+        "--no-models-autoload"
+      ],
+      "description": "for router server, whether to automatically load models (default: enabled) (env: LLAMA_ARG_MODELS_AUTOLOAD)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--jinja",
+      "aliases": [
+        "--jinja",
+        "--no-jinja"
+      ],
+      "description": "whether to use jinja template engine for chat (default: enabled) (env: LLAMA_ARG_JINJA)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--reasoning-format",
+      "aliases": [
+        "--reasoning-format"
+      ],
+      "description": "controls whether thought tags are allowed and/or extracted from the response, and in which format they're returned; one of: - none: leaves thoughts unparsed in `message.content` - deepseek: puts thoughts in `message.reasoning_content` - deepseek-legacy: keeps `` tags in `message.content` while also populating `message.reasoning_content` (default: auto) (env: LLAMA_ARG_THINK)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FORMAT"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--reasoning",
+      "aliases": [
+        "-rea",
+        "--reasoning"
+      ],
+      "description": "Use reasoning/thinking in the chat ('on', 'off', or 'auto', default: 'auto' (detect from template)) (env: LLAMA_ARG_REASONING)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "on\\|off\\|auto"
+      ],
+      "optional_parameter": true,
+      "choices": [
+        "on",
+        "off",
+        "auto"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--reasoning-effort",
+      "aliases": [
+        "--reasoning-effort"
+      ],
+      "description": "reasoning effort level given to the chat template: 'default' to keep the template default, or a level such as 'minimal', 'low', 'medium', 'high', 'xhigh' or 'max' (default: default) (env: LLAMA_ARG_REASONING_EFFORT)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "LEVEL"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--reasoning-budget",
+      "aliases": [
+        "--reasoning-budget"
+      ],
+      "description": "token budget for thinking: -1 for unrestricted, 0 for immediate end, N>0 for token budget (default: -1) (env: LLAMA_ARG_THINK_BUDGET)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--reasoning-budget-message",
+      "aliases": [
+        "--reasoning-budget-message"
+      ],
+      "description": "message injected before the end-of-thinking tag when reasoning budget is exhausted (default: none) (env: LLAMA_ARG_THINK_BUDGET_MESSAGE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "MESSAGE"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--reasoning-preserve",
+      "aliases": [
+        "--reasoning-preserve",
+        "--no-reasoning-preserve"
+      ],
+      "description": "preserve reasoning trace in the full history, not just the last assistant message (default: template default) compatible with certain templates having 'supports_preserve_reasoning' capability example: https://docs.z.ai/guides/capabilities/thinking-mode#preserved-thinking (env: LLAMA_ARG_REASONING_PRESERVE)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--chat-template",
+      "aliases": [
+        "--chat-template"
+      ],
+      "description": "set custom jinja chat template (default: template taken from model's metadata) if suffix/prefix are specified, template will be disabled only commonly used templates are accepted (unless --jinja is set before this flag): list of built-in templates: bailing, bailing-think, bailing2, chatglm3, chatglm4, chatml, command-r, deepseek, deepseek-ocr, deepseek2, deepseek3, exaone-moe, exaone3, exaone4, falcon3, gemma, gigachat, glmedge, gpt-oss, granite, granite-4.0, granite-4.1, grok-2, hunyuan-dense, hunyuan-moe, hunyuan-vl, kimi-k2, llama2, llama2-sys, llama2-sys-bos, llama2-sys-strip, llama3, llama4, megrez, minicpm, mistral-v1, mistral-v3, mistral-v3-tekken, mistral-v7, mistral-v7-tekken, monarch, openchat, orion, pangu-embedded, phi3, phi4, rwkv-world, seed_oss, smolvlm, solar-open, vicuna, vicuna-orca, yandex, zephyr (env: LLAMA_ARG_CHAT_TEMPLATE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "JINJA_TEMPLATE"
+      ],
+      "optional_parameter": false,
+      "choices": [
+        "bailing",
+        "bailing-think",
+        "bailing2",
+        "chatglm3",
+        "chatglm4",
+        "chatml",
+        "command-r",
+        "deepseek",
+        "deepseek-ocr",
+        "deepseek2",
+        "deepseek3",
+        "exaone-moe",
+        "exaone3",
+        "exaone4",
+        "falcon3",
+        "gemma",
+        "gigachat",
+        "glmedge",
+        "gpt-oss",
+        "granite",
+        "granite-4"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": "chat_template"
+    },
+    {
+      "canonical_name": "--chat-template-file",
+      "aliases": [
+        "--chat-template-file"
+      ],
+      "description": "set custom jinja chat template file (default: template taken from model's metadata) if suffix/prefix are specified, template will be disabled only commonly used templates are accepted (unless --jinja is set before this flag): list of built-in templates: bailing, bailing-think, bailing2, chatglm3, chatglm4, chatml, command-r, deepseek, deepseek-ocr, deepseek2, deepseek3, exaone-moe, exaone3, exaone4, falcon3, gemma, gigachat, glmedge, gpt-oss, granite, granite-4.0, granite-4.1, grok-2, hunyuan-dense, hunyuan-moe, hunyuan-vl, kimi-k2, llama2, llama2-sys, llama2-sys-bos, llama2-sys-strip, llama3, llama4, megrez, minicpm, mistral-v1, mistral-v3, mistral-v3-tekken, mistral-v7, mistral-v7-tekken, monarch, openchat, orion, pangu-embedded, phi3, phi4, rwkv-world, seed_oss, smolvlm, solar-open, vicuna, vicuna-orca, yandex, zephyr (env: LLAMA_ARG_CHAT_TEMPLATE_FILE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "JINJA_TEMPLATE_FILE"
+      ],
+      "optional_parameter": false,
+      "choices": [
+        "bailing",
+        "bailing-think",
+        "bailing2",
+        "chatglm3",
+        "chatglm4",
+        "chatml",
+        "command-r",
+        "deepseek",
+        "deepseek-ocr",
+        "deepseek2",
+        "deepseek3",
+        "exaone-moe",
+        "exaone3",
+        "exaone4",
+        "falcon3",
+        "gemma",
+        "gigachat",
+        "glmedge",
+        "gpt-oss",
+        "granite",
+        "granite-4"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": "template_file"
+    },
+    {
+      "canonical_name": "--skip-chat-parsing",
+      "aliases": [
+        "--skip-chat-parsing",
+        "--no-skip-chat-parsing"
+      ],
+      "description": "force a pure content parser, even if a Jinja template is specified; model will output everything in the content section, including any reasoning and/or tool calls (default: disabled) (env: LLAMA_ARG_SKIP_CHAT_PARSING)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--prefill-assistant",
+      "aliases": [
+        "--prefill-assistant",
+        "--no-prefill-assistant"
+      ],
+      "description": "whether to prefill the assistant's response if the last message is an assistant message (default: prefill enabled) when this flag is set, if the last message is an assistant message then it will be treated as a full message and not prefilled  (env: LLAMA_ARG_PREFILL_ASSISTANT)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--slot-prompt-similarity",
+      "aliases": [
+        "-sps",
+        "--slot-prompt-similarity"
+      ],
+      "description": "how much the prompt of a request must match the prompt of a slot in order to use that slot (default: 0.10, 0.0 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "SIMILARITY"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--lora-init-without-apply",
+      "aliases": [
+        "--lora-init-without-apply"
+      ],
+      "description": "load LoRA adapters without applying them (apply later via POST /lora-adapters) (default: disabled)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--sleep-idle-seconds",
+      "aliases": [
+        "--sleep-idle-seconds"
+      ],
+      "description": "number of seconds of idleness after which the server will sleep (default: -1; -1 = disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "SECONDS"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--log-prompts-dir",
+      "aliases": [
+        "--log-prompts-dir"
+      ],
+      "description": "Log prompts to directory (auto-created if not present; only used for debugging, default: disabled)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "PATH"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "path",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-hf",
+      "aliases": [
+        "--spec-draft-hf",
+        "-hfd",
+        "-hfrd",
+        "--hf-repo-draft"
+      ],
+      "description": "Same as --hf-repo, but for the draft model (default: unused) (env: LLAMA_ARG_SPEC_DRAFT_HF_REPO)",
+      "parameter_count": 3,
+      "parameter_names": [
+        "user",
+        "model",
+        ":quant"
+      ],
+      "optional_parameter": true,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-threads",
+      "aliases": [
+        "--spec-draft-threads",
+        "-td",
+        "--threads-draft"
+      ],
+      "description": "number of threads to use during generation (default: same as --threads)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-threads-batch",
+      "aliases": [
+        "--spec-draft-threads-batch",
+        "-tbd",
+        "--threads-batch-draft"
+      ],
+      "description": "number of threads to use during batch and prompt processing (default: same as --threads-draft)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-cpu-mask",
+      "aliases": [
+        "--spec-draft-cpu-mask",
+        "-Cd",
+        "--cpu-mask-draft"
+      ],
+      "description": "Draft model CPU affinity mask. Complements cpu-range-draft (default: same as --cpu-mask)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "M"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-cpu-range",
+      "aliases": [
+        "--spec-draft-cpu-range",
+        "-Crd",
+        "--cpu-range-draft"
+      ],
+      "description": "Ranges of CPUs for affinity. Complements --cpu-mask-draft",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-cpu-strict",
+      "aliases": [
+        "--spec-draft-cpu-strict",
+        "--cpu-strict-draft"
+      ],
+      "description": "Use strict CPU placement for draft model (default: same as --cpu-strict)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "0\\|1"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-prio",
+      "aliases": [
+        "--spec-draft-prio",
+        "--prio-draft"
+      ],
+      "description": "set draft process/thread priority : 0-normal, 1-medium, 2-high, 3-realtime (default: 0)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-poll",
+      "aliases": [
+        "--spec-draft-poll",
+        "--poll-draft"
+      ],
+      "description": "Use polling to wait for draft model work (default: same as --poll)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "0\\|1"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-cpu-mask-batch",
+      "aliases": [
+        "--spec-draft-cpu-mask-batch",
+        "-Cbd",
+        "--cpu-mask-batch-draft"
+      ],
+      "description": "Draft model CPU affinity mask. Complements cpu-range-draft (default: same as --cpu-mask)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "M"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-cpu-strict-batch",
+      "aliases": [
+        "--spec-draft-cpu-strict-batch",
+        "--cpu-strict-batch-draft"
+      ],
+      "description": "Use strict CPU placement for draft model (default: --cpu-strict-draft)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "0\\|1"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-prio-batch",
+      "aliases": [
+        "--spec-draft-prio-batch",
+        "--prio-batch-draft"
+      ],
+      "description": "set draft process/thread priority : 0-normal, 1-medium, 2-high, 3-realtime (default: 0)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-poll-batch",
+      "aliases": [
+        "--spec-draft-poll-batch",
+        "--poll-batch-draft"
+      ],
+      "description": "Use polling to wait for draft model work (default: --poll-draft)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "0\\|1"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-override-tensor",
+      "aliases": [
+        "--spec-draft-override-tensor",
+        "-otd",
+        "--override-tensor-draft"
+      ],
+      "description": "override tensor buffer type for draft model",
+      "parameter_count": 5,
+      "parameter_names": [
+        "tensor",
+        "name",
+        "pattern",
+        "buffer",
+        "type"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-cpu-moe",
+      "aliases": [
+        "--spec-draft-cpu-moe",
+        "-cmoed",
+        "--cpu-moe-draft"
+      ],
+      "description": "keep all Mixture of Experts (MoE) weights in the CPU for the draft model (env: LLAMA_ARG_SPEC_DRAFT_CPU_MOE)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-n-cpu-moe",
+      "aliases": [
+        "--spec-draft-n-cpu-moe",
+        "--spec-draft-ncmoe",
+        "-ncmoed",
+        "--n-cpu-moe-draft"
+      ],
+      "description": "keep the Mixture of Experts (MoE) weights of the first N layers in the CPU for the draft model (env: LLAMA_ARG_SPEC_DRAFT_N_CPU_MOE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-n-max",
+      "aliases": [
+        "--spec-draft-n-max"
+      ],
+      "description": "number of tokens to draft for speculative decoding (default: 3) (env: LLAMA_ARG_SPEC_DRAFT_N_MAX)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-n-min",
+      "aliases": [
+        "--spec-draft-n-min"
+      ],
+      "description": "minimum number of draft tokens to use for speculative decoding (default: 0) (env: LLAMA_ARG_SPEC_DRAFT_N_MIN)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-p-split",
+      "aliases": [
+        "--spec-draft-p-split",
+        "--draft-p-split"
+      ],
+      "description": "speculative decoding split probability (default: 0.10) (env: LLAMA_ARG_SPEC_DRAFT_P_SPLIT)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "P"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-p-min",
+      "aliases": [
+        "--spec-draft-p-min",
+        "--draft-p-min"
+      ],
+      "description": "minimum speculative decoding probability (greedy) (default: 0.00) (env: LLAMA_ARG_SPEC_DRAFT_P_MIN)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "P"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-backend-sampling",
+      "aliases": [
+        "--spec-draft-backend-sampling",
+        "--no-spec-draft-backend-sampling"
+      ],
+      "description": "offload draft sampling to the backend (default: enabled) (env: LLAMA_ARG_SPEC_DRAFT_BACKEND_SAMPLING)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-device",
+      "aliases": [
+        "--spec-draft-device",
+        "-devd",
+        "--device-draft"
+      ],
+      "description": "comma-separated list of devices to use for offloading the draft model (none = don't offload) use --list-devices to see a list of available devices",
+      "parameter_count": 3,
+      "parameter_names": [
+        "dev1",
+        "dev2",
+        ".."
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-ngl",
+      "aliases": [
+        "--spec-draft-ngl",
+        "-ngld",
+        "--gpu-layers-draft",
+        "--n-gpu-layers-draft"
+      ],
+      "description": "max. number of draft model layers to store in VRAM, either an exact number, 'auto', or 'all' (default: auto) (env: LLAMA_ARG_N_GPU_LAYERS_DRAFT)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-draft-model",
+      "aliases": [
+        "--spec-draft-model",
+        "-md",
+        "--model-draft"
+      ],
+      "description": "draft model for speculative decoding (default: unused) (env: LLAMA_ARG_SPEC_DRAFT_MODEL)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "FNAME"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": "draft_model"
+    },
+    {
+      "canonical_name": "--spec-type",
+      "aliases": [
+        "--spec-type"
+      ],
+      "description": "comma-separated list of types of speculative decoding to use (default: none)  (env: LLAMA_ARG_SPEC_TYPE)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "VALUE"
+      ],
+      "optional_parameter": false,
+      "choices": [
+        "none",
+        "draft-simple",
+        "draft-eagle3",
+        "draft-mtp",
+        "draft-dflash",
+        "draft-dspark",
+        "ngram-simple",
+        "ngram-map-k",
+        "ngram-map-k4v",
+        "ngram-mod",
+        "ngram-cache"
+      ],
+      "value_type": "string",
+      "repeatable": false,
+      "special_editor": "spec_type"
+    },
+    {
+      "canonical_name": "--spec-ngram-mod-n-min",
+      "aliases": [
+        "--spec-ngram-mod-n-min"
+      ],
+      "description": "minimum number of ngram tokens to use for ngram-based speculative decoding (default: 48)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-mod-n-max",
+      "aliases": [
+        "--spec-ngram-mod-n-max"
+      ],
+      "description": "maximum number of ngram tokens to use for ngram-based speculative decoding (default: 64)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-mod-n-match",
+      "aliases": [
+        "--spec-ngram-mod-n-match"
+      ],
+      "description": "ngram-mod lookup length (default: 24)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-simple-size-n",
+      "aliases": [
+        "--spec-ngram-simple-size-n"
+      ],
+      "description": "ngram size N for ngram-simple speculative decoding, length of lookup n-gram (default: 12)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-simple-size-m",
+      "aliases": [
+        "--spec-ngram-simple-size-m"
+      ],
+      "description": "ngram size M for ngram-simple speculative decoding, length of draft m-gram (default: 48)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-simple-min-hits",
+      "aliases": [
+        "--spec-ngram-simple-min-hits"
+      ],
+      "description": "minimum hits for ngram-simple speculative decoding (default: 1)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-map-k-size-n",
+      "aliases": [
+        "--spec-ngram-map-k-size-n"
+      ],
+      "description": "ngram size N for ngram-map-k speculative decoding, length of lookup n-gram (default: 12)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-map-k-size-m",
+      "aliases": [
+        "--spec-ngram-map-k-size-m"
+      ],
+      "description": "ngram size M for ngram-map-k speculative decoding, length of draft m-gram (default: 48)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-map-k-min-hits",
+      "aliases": [
+        "--spec-ngram-map-k-min-hits"
+      ],
+      "description": "minimum hits for ngram-map-k speculative decoding (default: 1)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-map-k4v-size-n",
+      "aliases": [
+        "--spec-ngram-map-k4v-size-n"
+      ],
+      "description": "ngram size N for ngram-map-k4v speculative decoding, length of lookup n-gram (default: 12)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-map-k4v-size-m",
+      "aliases": [
+        "--spec-ngram-map-k4v-size-m"
+      ],
+      "description": "ngram size M for ngram-map-k4v speculative decoding, length of draft m-gram (default: 48)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-map-k4v-min-hits",
+      "aliases": [
+        "--spec-ngram-map-k4v-min-hits"
+      ],
+      "description": "minimum hits for ngram-map-k4v speculative decoding (default: 1)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--draft",
+      "aliases": [
+        "--draft",
+        "--draft-n",
+        "--draft-max"
+      ],
+      "description": "the argument has been removed. use --spec-draft-n-max or --spec-ngram-mod-n-max (env: LLAMA_ARG_DRAFT_MAX)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--draft-min",
+      "aliases": [
+        "--draft-min",
+        "--draft-n-min"
+      ],
+      "description": "the argument has been removed. use --spec-draft-n-min or --spec-ngram-mod-n-min (env: LLAMA_ARG_DRAFT_MIN)",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-size-n",
+      "aliases": [
+        "--spec-ngram-size-n"
+      ],
+      "description": "the argument has been removed. use the respective --spec-ngram-*-size-n or --spec-ngram-mod-n-match",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-size-m",
+      "aliases": [
+        "--spec-ngram-size-m"
+      ],
+      "description": "the argument has been removed. use the respective --spec-ngram-*-size-m",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-ngram-min-hits",
+      "aliases": [
+        "--spec-ngram-min-hits"
+      ],
+      "description": "the argument has been removed. use the respective --spec-ngram-*-min-hits",
+      "parameter_count": 1,
+      "parameter_names": [
+        "N"
+      ],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "integer",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--embd-gemma-default",
+      "aliases": [
+        "--embd-gemma-default"
+      ],
+      "description": "use default EmbeddingGemma model (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--fim-qwen-1",
+      "aliases": [
+        "--fim-qwen-1"
+      ],
+      "description": "use default Qwen 2.5 Coder 1.5B (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--fim-qwen-3b-default",
+      "aliases": [
+        "--fim-qwen-3b-default"
+      ],
+      "description": "use default Qwen 2.5 Coder 3B (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--fim-qwen-7b-default",
+      "aliases": [
+        "--fim-qwen-7b-default"
+      ],
+      "description": "use default Qwen 2.5 Coder 7B (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--fim-qwen-7b-spec",
+      "aliases": [
+        "--fim-qwen-7b-spec"
+      ],
+      "description": "use Qwen 2.5 Coder 7B + 0.5B draft for speculative decoding (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--fim-qwen-14b-spec",
+      "aliases": [
+        "--fim-qwen-14b-spec"
+      ],
+      "description": "use Qwen 2.5 Coder 14B + 0.5B draft for speculative decoding (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--fim-qwen-30b-default",
+      "aliases": [
+        "--fim-qwen-30b-default"
+      ],
+      "description": "use default Qwen 3 Coder 30B A3B Instruct (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--gpt-oss-20b-default",
+      "aliases": [
+        "--gpt-oss-20b-default"
+      ],
+      "description": "use gpt-oss-20b (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--gpt-oss-120b-default",
+      "aliases": [
+        "--gpt-oss-120b-default"
+      ],
+      "description": "use gpt-oss-120b (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--vision-gemma-4b-default",
+      "aliases": [
+        "--vision-gemma-4b-default"
+      ],
+      "description": "use Gemma 3 4B QAT (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--vision-gemma-12b-default",
+      "aliases": [
+        "--vision-gemma-12b-default"
+      ],
+      "description": "use Gemma 3 12B QAT (note: can download weights from the internet)",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    },
+    {
+      "canonical_name": "--spec-default",
+      "aliases": [
+        "--spec-default"
+      ],
+      "description": "enable default speculative decoding config",
+      "parameter_count": 0,
+      "parameter_names": [],
+      "optional_parameter": false,
+      "choices": [],
+      "value_type": "boolean",
+      "repeatable": false,
+      "special_editor": null
+    }
+  ]
+}
