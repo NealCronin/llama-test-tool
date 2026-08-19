@@ -70,11 +70,22 @@ def parse_hub_version(text: str) -> str:
 
 
 def parse_whoami(text: str) -> str:
-    """``hf auth whoami`` prints ``user:  <username>`` when authenticated."""
+    """Best-effort username extraction from ``hf auth whoami`` output.
+
+    Historical formats include ``user:  <username>`` and a bare username line
+    (possibly followed by ``orgs:``). The empty string means "no username
+    recognized" — callers must treat the CLI exit status as the primary
+    authentication signal, never this text alone.
+    """
     for line in text.splitlines():
         match = re.match(r"\s*user\s*:\s*(\S+)", line, re.IGNORECASE)
         if match:
             return match.group(1)
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or ":" in stripped or " " in stripped:
+            continue  # header-ish, blank, or sentence text (e.g. an error line)
+        return stripped
     return ""
 
 
@@ -105,27 +116,58 @@ _DRY_RUN_SUMMARY = re.compile(
 def parse_dry_run(text: str, exit_code: int = 0) -> HfDryRunReport:
     """Parse ``hf download --dry-run`` output (huggingface_hub >= 1.0.0).
 
-    The 1.x CLI prints a summary line plus a two-column table
-    (``File`` / ``Bytes to download``). When the shape is unrecognizable the
-    report is returned with ``parsed=False`` so the caller shows the raw text
-    instead of inventing rows.
+    The 1.x CLI prints a summary line plus a two-column table. The summary is
+    the source of truth for the counts; the table is decoded conservatively
+    from the declared size column (1.x ``FILE``/``SIZE`` or the older
+    ``File``/``Bytes to download`` header). When the shape is unrecognizable
+    the report keeps ``parsed=False`` so the caller shows the raw text instead
+    of inventing rows.
     """
     match = _DRY_RUN_SUMMARY.search(text)
     if match is None:
         return HfDryRunReport(exit_code=exit_code, parsed=False, raw=text)
-    files: list[HfDryRunFile] = []
-    size_col: int | None = None
-    for line in text.splitlines():
-        if "Bytes to download" in line:
+    return HfDryRunReport(
+        exit_code=exit_code,
+        total_files=int(match.group(2)),
+        transfer_files=int(match.group(1)),
+        transfer_text=match.group(3).strip(),
+        files=tuple(_parse_dry_run_table(text)),
+        parsed=True,
+        raw=text,
+    )
+
+
+_DRY_RUN_SIZE_HEADER = re.compile(r"^\s*(?:\S.*?\s+)?(SIZE|BYTES TO DOWNLOAD)\s*$", re.IGNORECASE)
+
+
+def _parse_dry_run_table(text: str) -> list[HfDryRunFile]:
+    """Extract (filename, size) rows from the human dry-run table.
+
+    The size column is located from the header token, never assumed at a
+    fixed offset. Returns an empty list when no recognizable header exists;
+    the caller keeps the summary counts in that case.
+    """
+    lines = text.splitlines()
+    header_index = -1
+    size_col = -1
+    for index, line in enumerate(lines):
+        marker = "Bytes to download" if "Bytes to download" in line else None
+        if marker is None:
+            match = _DRY_RUN_SIZE_HEADER.match(line)
+            if match:
+                marker, size_col = match.group(1), match.start(1)
+        else:
             size_col = line.index("Bytes to download")
-            continue
-        if size_col is None:
-            continue
+        if marker is not None:
+            header_index = index
+            break
+    if header_index < 0:
+        return []
+    files: list[HfDryRunFile] = []
+    for line in lines[header_index + 1 :]:
         stripped = line.strip()
-        if not stripped:
-            continue
-        if "-" in stripped and set(stripped) <= {"-", " "}:
-            continue  # dash separator row
+        if not stripped or set(stripped) <= {"-", " "}:
+            continue  # blank or dash separator row
         if size_col < len(line):
             filename = line[:size_col].strip()
             size = line[size_col:].strip()
@@ -134,15 +176,7 @@ def parse_dry_run(text: str, exit_code: int = 0) -> HfDryRunReport:
         if not filename:
             continue
         files.append(HfDryRunFile(filename=filename, size_text="" if size == "-" else size, will_download=size != "-"))
-    return HfDryRunReport(
-        exit_code=exit_code,
-        total_files=int(match.group(2)),
-        transfer_files=int(match.group(1)),
-        transfer_text=match.group(3).strip(),
-        files=tuple(files),
-        parsed=True,
-        raw=text,
-    )
+    return files
 
 
 def build_download_argv(caps: HfCliCapabilities, request: HfDownloadRequest, dry_run: bool = False) -> list[str]:
@@ -194,8 +228,10 @@ def build_download_argv(caps: HfCliCapabilities, request: HfDownloadRequest, dry
     if request.max_workers is not None:
         argv += ["--max-workers", str(request.max_workers)]
     if dry_run:
-        # Quiet mode keeps the dry-run table machine-readable.
-        argv += ["--dry-run", "--quiet"]
+        # No --quiet: huggingface_hub 1.x removed the flag entirely and rejects
+        # it, so the pair would hard-error on the only CLIs that support
+        # --dry-run. The plain dry-run table keeps the info we parse.
+        argv.append("--dry-run")
     return argv
 def _snapshot(directory: Path) -> set[str]:
     if not directory.is_dir():
@@ -245,6 +281,7 @@ class HfCliService(QObject):
         self._active: str | None = None
         self._process: QProcess | None = None
         self._preview_process: QProcess | None = None
+        self._preview_generation = 0
         self._cancelling = False
         self._before: set[str] = set()
         self._counter = 0
@@ -283,13 +320,36 @@ class HfCliService(QObject):
         self.capabilities_ready.emit(self.capabilities)
 
     def _on_whoami(self, output: str, code: int) -> None:
+        # Exit status is the authentication truth; the username is best-effort
+        # decoration so a changed textual format never logs out a user.
         username = parse_whoami(output) if code == 0 else ""
-        self.auth = HfAuthStatus(authenticated=bool(username), username=username)
+        self.auth = HfAuthStatus(authenticated=code == 0, username=username)
         self.auth_ready.emit(self.auth)
 
     # ------------------------------------------------------------------ queue
     def jobs(self) -> list[HfJob]:
-        return [self._jobs[job_id] for job_id in self._order if job_id in self._jobs]
+        """Rows in user-visible order: active first, then the pending queue in
+        exact execution order, then finished history in submission order.
+
+        ``move_queued`` reorders the pending deque; because the deque is
+        reflected here, the visible table and the actual execution sequence
+        can never diverge.
+        """
+        seen: set[str] = set()
+        rows: list[HfJob] = []
+        current = self._active
+        if current is not None and current in self._jobs:
+            rows.append(self._jobs[current])
+            seen.add(current)
+        for job_id in self._queue:
+            if job_id in self._jobs and job_id not in seen:
+                rows.append(self._jobs[job_id])
+                seen.add(job_id)
+        for job_id in self._order:
+            if job_id in self._jobs and job_id not in seen:
+                rows.append(self._jobs[job_id])
+                seen.add(job_id)
+        return rows
 
     def job(self, job_id: str) -> HfJob | None:
         return self._jobs.get(job_id)
@@ -392,6 +452,7 @@ class HfCliService(QObject):
         still running can abort the process on Windows.
         """
         self.clear_queue()
+        self._preview_generation += 1  # discard any in-flight preview callbacks
         for process in (self._process, self._preview_process):
             if process is None:
                 continue
@@ -417,14 +478,37 @@ class HfCliService(QObject):
 
         The dry run never mutates the destination. Raises HfCliError when the
         installed CLI predates ``--dry-run`` (huggingface_hub < 1.0.0).
+
+        Each call starts a new generation; only the newest generation may
+        publish its result, so a stale preview finishing late can never
+        overwrite a newer one. The Python reference to a finished process is
+        dropped as soon as its result is published, never kept past the C++
+        deleteLater.
         """
         caps = self.capabilities
         argv = build_download_argv(caps, request, dry_run=True)
-        if self._preview_process is not None and self._preview_process.state() != QProcess.ProcessState.NotRunning:
-            self._preview_process.terminate()
-        self._preview_process = self._spawn(
-            argv, on_done=lambda output, code, _status: self.preview_finished.emit(parse_dry_run(output, code))
-        )
+
+        self._preview_generation += 1
+        generation = self._preview_generation
+
+        old = self._preview_process
+        if old is not None:
+            try:
+                if old.state() != QProcess.ProcessState.NotRunning:
+                    # Terminate the previous preview; its late callbacks are
+                    # discarded by the generation guard below.
+                    old.kill()
+            except RuntimeError:
+                pass  # C++ object already deleted; nothing left to stop
+            self._preview_process = None
+
+        def on_done(output: str, code: int, _status) -> None:
+            if generation != self._preview_generation:
+                return  # stale preview: a newer one has taken over
+            self._preview_process = None
+            self.preview_finished.emit(parse_dry_run(output, code))
+
+        self._preview_process = self._spawn(argv, on_done=on_done)
 
     # ------------------------------------------------------------------ pump
     def _pump(self) -> None:

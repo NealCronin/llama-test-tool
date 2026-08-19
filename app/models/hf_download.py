@@ -87,8 +87,8 @@ class HfDownloadRequest:
         object.__setattr__(self, "exclude", tuple(part.strip() for part in self.exclude if part.strip()))
         if not self.repo_id:
             raise ValueError("Repo ID is required.")
-        if self.selection_mode is HfSelectionMode.ENTIRE and (self.filenames or self.include or self.exclude):
-            raise ValueError("Entire-repository downloads take no file names or patterns.")
+        if self.selection_mode is HfSelectionMode.ENTIRE and (self.filenames or self.include):
+            raise ValueError("Entire-repository downloads take no file names or include patterns (exclude is allowed).")
         if self.selection_mode is HfSelectionMode.EXACT and not self.filenames:
             raise ValueError("Exact file selection needs at least one file name.")
         if self.selection_mode is HfSelectionMode.PATTERNS and not self.include:
@@ -119,6 +119,8 @@ class HfDownloadRequest:
             if self.exclude:
                 summary += "; exclude " + ", ".join(self.exclude)
             return summary
+        if self.exclude:
+            return "entire repository; exclude " + ", ".join(self.exclude)
         return "entire repository"
 
     def describe(self) -> str:
@@ -167,7 +169,9 @@ class HfAuthStatus:
 
     @property
     def label(self) -> str:
-        return f"Authenticated as {self.username}" if self.authenticated else "Not authenticated (public repos only)"
+        if not self.authenticated:
+            return "Not authenticated (public repos only)"
+        return f"Authenticated as {self.username}" if self.username else "Authenticated"
 
 
 @dataclass(frozen=True)

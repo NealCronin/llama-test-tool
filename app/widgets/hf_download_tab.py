@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 from PySide6.QtWidgets import (
@@ -28,7 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from app.models.hf_download import (
     HfAuthStatus,
     HfCliCapabilities,
@@ -144,10 +145,12 @@ class HfDownloadTab(QWidget):
         for edit in (self.files_edit, self.include_edit, self.exclude_edit):
             edit.setReadOnly(False)
         request_layout.addWidget(QLabel("Repo ID", self))
+        repo_row.addWidget(self.repo_edit, 1)
         repo_row.addWidget(QLabel("Repository Type", self))
         repo_row.addWidget(self.repo_type_combo, 1)
         request_layout.addLayout(repo_row)
         request_layout.addWidget(QLabel("Revision", self))
+        revision_row.addWidget(self.revision_edit, 1)
         request_layout.addLayout(revision_row)
         request_layout.addWidget(QLabel("Selection", self))
         request_layout.addLayout(selection_row)
@@ -155,6 +158,11 @@ class HfDownloadTab(QWidget):
         request_layout.addWidget(self.include_edit)
         request_layout.addWidget(self.exclude_edit)
         root.addWidget(request_group)
+
+        self.capability_note = QLabel("", self)
+        self.capability_note.setWordWrap(True)
+        self.capability_note.setStyleSheet("color: #7a3b00; font-weight: bold;")
+        root.addWidget(self.capability_note)
 
         destination_group = QGroupBox("Destination", self)
         destination_layout = QVBoxLayout(destination_group)
@@ -331,16 +339,62 @@ class HfDownloadTab(QWidget):
 
     def _on_capabilities(self, caps: HfCliCapabilities) -> None:
         self._capabilities = caps
-        supported = caps.dry_run
-        self.preview_button.setEnabled(supported)
-        if supported:
+        if caps.dry_run:
             self.preview_button.setToolTip("Runs `hf download … --dry-run` (does not touch the destination).")
         else:
-            note = "The installed hf CLI has no --dry-run (needs huggingface_hub 1.0.0+). Preview Download is disabled; update with: python -m pip install -U huggingface_hub"
-            self.preview_button.setToolTip(note)
-            self.destination_note.setText(note)
+            self.preview_button.setToolTip("The installed hf CLI has no --dry-run (needs huggingface_hub 1.0.0+).")
+        self.preview_button.setEnabled(caps.dry_run)
+        self._apply_capability_gates()
         self._update_status()
         self._update_preview()
+
+    def _apply_capability_gates(self) -> None:
+        """Disable form controls whose option flag the installed CLI lacks.
+
+        The command preview still errors on unsupported options (defense in
+        depth), but a disabled control plus the note below makes the reason
+        visible before the user ever clicks Start.
+        """
+        caps = self._capabilities
+        if caps is None:
+            return
+        gates = (
+            (self.repo_type_combo, caps.repo_type),
+            (self.revision_edit, caps.revision),
+            (self.include_edit, caps.include),
+            (self.exclude_edit, caps.exclude),
+            (self.custom_local_edit, caps.local_dir),
+            (self.cache_edit, caps.cache_dir),
+            (self.force_check, caps.force_download),
+            (self.workers_check, caps.max_workers),
+            (self.workers_spin, caps.max_workers),
+        )
+        labels = {
+            self.repo_type_combo: ("--repo-type", "Repository Type"),
+            self.revision_edit: ("--revision", "Revision"),
+            self.include_edit: ("--include", "Include patterns"),
+            self.exclude_edit: ("--exclude", "Exclude patterns"),
+            self.custom_local_edit: ("--local-dir", "Custom Folder"),
+            self.cache_edit: ("--cache-dir", "Custom cache"),
+            self.force_check: ("--force-download", "Force Download"),
+            self.workers_check: ("--max-workers", "Max workers"),
+            self.workers_spin: ("--max-workers", "Max workers"),
+        }
+        missing: list[str] = []
+        for widget, supported in gates:
+            flag, label = labels[widget]
+            widget.setEnabled(supported)
+            if supported:
+                widget.setToolTip("")
+            else:
+                widget.setToolTip(f"The installed hf CLI lacks {flag} ({label}). Update with: python -m pip install -U huggingface_hub")
+                missing.append(label)
+        notes: list[str] = []
+        if missing:
+            notes.append("Installed hf CLI lacks: " + ", ".join(sorted(missing)) + ". Those controls are disabled (python -m pip install -U huggingface_hub).")
+        if not caps.dry_run:
+            notes.append("Preview Download needs --dry-run (huggingface_hub 1.0.0+).")
+        self.capability_note.setText("\n".join(notes))
 
     def _on_auth(self, auth: HfAuthStatus) -> None:
         self._auth = auth
@@ -358,16 +412,19 @@ class HfDownloadTab(QWidget):
         if not path:
             self.post_status.setText("hf CLI not found; install it first: python -m pip install -U huggingface_hub")
             return
-        if os.name == "nt":
-            subprocess.Popen([path, "auth", "login"], creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
-            self.post_status.setText("Login terminal opened; complete the login there, then press Refresh Status.")
-        else:
-            for terminal in ("x-terminal-emulator", "konsole", "xterm"):
-                if subprocess.run(["which", terminal], capture_output=True).returncode == 0:
-                    subprocess.Popen([terminal, "-e", path, "auth", "login"])
-                    self.post_status.setText("Login terminal opened; complete the login there, then press Refresh Status.")
+        try:
+            if os.name == "nt":
+                subprocess.Popen([path, "auth", "login"], creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
+            else:
+                # shutil.which is process-free; never shell out to `which` from the GUI thread.
+                terminal = shutil.which("x-terminal-emulator") or shutil.which("konsole") or shutil.which("xterm")
+                if terminal is None:
+                    self.post_status.setText("No terminal emulator found; use Copy Login Command and run it in a terminal.")
                     return
-            self.post_status.setText("No terminal emulator found; use Copy Login Command and run it in a terminal.")
+                subprocess.Popen([terminal, "-e", path, "auth", "login"])
+            self.post_status.setText("Login terminal opened; complete the login there, then press Refresh Status.")
+        except (OSError, ValueError) as error:  # launch failures must not escape the Qt slot
+            self.post_status.setText(f"Could not open a login terminal: {error}")
 
     def _copy_login_command(self) -> None:
         from PySide6.QtWidgets import QApplication
@@ -388,7 +445,9 @@ class HfDownloadTab(QWidget):
         mode = self._selected_mode()
         self.files_edit.setEnabled(mode is HfSelectionMode.EXACT)
         self.include_edit.setEnabled(mode is HfSelectionMode.PATTERNS)
-        self.exclude_edit.setEnabled(mode is HfSelectionMode.PATTERNS)
+        # Exclude is meaningful for both ENTIRE ("everything except these") and
+        # PATTERNS; only EXACT (positional filenames) has no exclude semantic.
+        self.exclude_edit.setEnabled(mode is not HfSelectionMode.EXACT)
 
     def _update_destination(self) -> None:
         target = HfTarget(self.destination_combo.currentData() or HfTarget.MODELS.value)
@@ -427,7 +486,7 @@ class HfDownloadTab(QWidget):
                     selection_mode=mode,
                     filenames=tuple(self._split_list(self.files_edit.text())) if mode is HfSelectionMode.EXACT else (),
                     include=tuple(self._split_list(self.include_edit.text())) if mode is HfSelectionMode.PATTERNS else (),
-                    exclude=tuple(self._split_list(self.exclude_edit.text())) if mode is HfSelectionMode.PATTERNS else (),
+                    exclude=tuple(self._split_list(self.exclude_edit.text())) if mode is not HfSelectionMode.EXACT else (),
                     revision=self.revision_edit.text().strip(),
                     local_dir=local_dir,
                     cache_dir=cache_dir,
@@ -478,7 +537,7 @@ class HfDownloadTab(QWidget):
         self._previewing = False
         if self._capabilities is not None:
             self.preview_button.setEnabled(self._capabilities.dry_run)
-        if report.exit_code != 0 and not report.parsed:
+        if report.exit_code != 0:
             self.preview_box.setPlainText(redact_secrets(f"Preview failed (exit code {report.exit_code}):\n{report.raw}"))
             self.post_status.setText(f"Preview failed (exit code {report.exit_code}).")
             return

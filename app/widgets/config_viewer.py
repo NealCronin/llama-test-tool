@@ -117,22 +117,16 @@ class ConfigViewer(QWidget):
         settings_form.addRow(self.use_model_name)
         settings_form.addRow(self.check_endpoint)
         settings_form.addRow(self.unlisted)
-        self.ttl_mode = QComboBox(settings_group)
-        self.ttl_mode.addItem("Global (inherit)", "global")
-        self.ttl_mode.addItem("Inherit timeout", "inherit")
-        self.ttl_mode.addItem("Custom…", "custom")
-        self.ttl = QLineEdit(settings_group)
-        self.ttl_mode.currentIndexChanged.connect(lambda: self.ttl.setEnabled(self.ttl_mode.currentData() == "custom"))
-        self.unload_mode = QComboBox(settings_group)
-        self.unload_mode.addItem("Global (inherit)", "global")
-        self.unload_mode.addItem("Inherit timeout", "inherit")
-        self.unload_mode.addItem("Custom…", "custom")
-        self.unload = QLineEdit(settings_group)
-        self.unload_mode.currentIndexChanged.connect(lambda: self.unload.setEnabled(self.unload_mode.currentData() == "custom"))
-        settings_form.addRow("TTL (seconds)", self.ttl_mode)
-        settings_form.addRow("Custom TTL (−1 = never)", self.ttl)
-        settings_form.addRow("Unload timeout (seconds)", self.unload_mode)
-        settings_form.addRow("Custom unload timeout", self.unload)
+        # Presence-aware: unchecked = key absent (inherit global), checked with
+        # a value = explicitly stored. ttl accepts -1 ("never unload"); the
+        # save path writes the exact explicit value and removes the key when
+        # the field is left unset.
+        self.ttl = OptionalInt(0, settings_group)
+        self.ttl.edit.setPlaceholderText("unset = inherit global; -1 = never unload")
+        self.unload = OptionalInt(0, settings_group)
+        self.unload.edit.setPlaceholderText("unset = inherit global")
+        settings_form.addRow("TTL (seconds)", self.ttl)
+        settings_form.addRow("Unload timeout (seconds)", self.unload)
         self.concurrency_limit = OptionalInt(0, settings_group)
         self.send_loading_state = OptionalBool(False, settings_group)
         settings_form.addRow("Concurrency limit", self.concurrency_limit)
@@ -274,23 +268,8 @@ class ConfigViewer(QWidget):
         self.use_model_name.setText(_model_field_text(entry.get("useModelName")))
         self.check_endpoint.setText(_model_field_text(entry.get("checkEndpoint")))
         self.unlisted.setChecked(bool(entry.get("unlisted", False)))
-        ttl = entry.get("ttl")
-        if ttl == -1:
-            self.ttl_mode.setCurrentIndex(1)
-            self.ttl.setText("-1")
-        elif isinstance(ttl, int) and ttl != -1:
-            self.ttl_mode.setCurrentIndex(2)
-            self.ttl.setText(str(ttl))
-        else:
-            self.ttl_mode.setCurrentIndex(0)
-            self.ttl.setText("")
-        unload = entry.get("unloadTimeout")
-        if isinstance(unload, int):
-            self.unload_mode.setCurrentIndex(2)
-            self.unload.setText(str(unload))
-        else:
-            self.unload_mode.setCurrentIndex(0)
-            self.unload.setText("")
+        self.ttl.load("ttl" in entry, entry.get("ttl", 0))
+        self.unload.load("unloadTimeout" in entry, entry.get("unloadTimeout", 0))
         self.concurrency_limit.load("concurrencyLimit" in entry, entry.get("concurrencyLimit", 0))
         self.send_loading_state.load("sendLoadingState" in entry, entry.get("sendLoadingState", False))
         capabilities = entry.get("capabilities") or {}
@@ -313,8 +292,8 @@ class ConfigViewer(QWidget):
         self.save_command_button.setEnabled(enabled)
         self.duplicate_button.setEnabled(enabled)
         self.remove_button.setEnabled(enabled)
-        self.ttl_mode.setEnabled(enabled)
-        self.unload_mode.setEnabled(enabled)
+        self.ttl.setEnabled(enabled)
+        self.unload.setEnabled(enabled)
         self.name.setEnabled(enabled)
         self.description.setEnabled(enabled)
         self.use_model_name.setEnabled(enabled)
@@ -387,7 +366,7 @@ class ConfigViewer(QWidget):
         self.status.emit(f"Removed model {self.current_id}.")
         self.refresh()
     def _inherit_timeouts(self) -> None:
-        if QMessageBox.question(self, "Inherit global timeouts", "Set every model TTL to -1 and unloadTimeout to 0?") != QMessageBox.StandardButton.Yes:
+        if QMessageBox.question(self, "Inherit global timeouts", "Remove per-model TTL and unloadTimeout from every model (inherit global defaults)?") != QMessageBox.StandardButton.Yes:
             return
         service = self.service()
         if service is None:
@@ -420,16 +399,10 @@ class ConfigViewer(QWidget):
             values["concurrencyLimit"] = concurrency
             loading = self.send_loading_state.explicit()
             values["sendLoadingState"] = loading
-            ttl_mode = self.ttl_mode.currentData()
-            if ttl_mode == "custom":
-                values["ttl"] = int(self.ttl.text())
-            elif ttl_mode == "inherit":
-                values["ttl"] = None
-            unload_mode = self.unload_mode.currentData()
-            if unload_mode == "custom":
-                values["unloadTimeout"] = int(self.unload.text())
-            elif unload_mode == "inherit":
-                values["unloadTimeout"] = None
+            # None removes the key (unset/inherit global); an explicit int -1/0/N
+            # is stored verbatim — never collapsed to absence.
+            values["ttl"] = self.ttl.explicit()
+            values["unloadTimeout"] = self.unload.explicit()
             capabilities: dict[str, object] = {}
             if self.caps_configured.isChecked():
                 inputs = [capability for capability, checkbox in self.caps_in.items() if checkbox.isChecked()]

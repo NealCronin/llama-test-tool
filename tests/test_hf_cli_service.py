@@ -188,9 +188,12 @@ def test_build_download_argv_workers_omitted_by_default():
     assert argv[argv.index("--max-workers") + 1] == "4"
 
 
-def test_build_download_argv_dry_run_uses_quiet():
+def test_build_download_argv_dry_run_has_no_quiet():
+    # huggingface_hub 1.x removed --quiet from `hf download`: the flag errors
+    # on the only CLIs that support --dry-run, so it must never be emitted.
     argv = build_download_argv(CAPS, HfDownloadRequest(repo_id="o/r"), dry_run=True)
-    assert argv[-2:] == ["--dry-run", "--quiet"]
+    assert argv[-1] == "--dry-run"
+    assert "--quiet" not in argv
 
 
 def test_build_download_argv_rejects_unsupported_options():
@@ -210,8 +213,14 @@ def test_parse_whoami_authenticated():
     assert parse_whoami("user:  testuser") == "testuser"
 
 
+def test_parse_whoami_bare_username():
+    assert parse_whoami("alice") == "alice"
+    assert parse_whoami("alice\norgs: org1") == "alice"
+
+
 def test_parse_whoami_unauthenticated():
-    assert parse_whoami("You are not logged in.") == ""
+    assert parse_whoami("You are not logged in.") == ""  # sentence text, not a username
+    assert parse_whoami("") == ""
 
 
 def test_parse_download_help_records_capabilities():
@@ -340,6 +349,10 @@ _DRY_RUN_OUTPUT = (
 def _write_fake_hf(directory: Path, *, with_dry_run: bool = True, authenticated: bool = True) -> Path:
     """Write a fake ``hf`` batch CLI.
 
+    The fake models the real CLI contract: ``--dry-run`` is only available
+    when the help advertises it, ``--quiet`` is unrecognized (huggingface_hub
+    1.x removed it entirely), and a dry run never touches the destination.
+
     Uses goto labels instead of nested parenthesized if-blocks: cmd.exe
     silently drops the exit code of ``exit /b N`` when it sits inside a
     block that is itself nested in another block.
@@ -365,6 +378,8 @@ def _write_fake_hf(directory: Path, *, with_dry_run: bool = True, authenticated:
         "if \"%2\"==\"--help\" goto :download_help\r\n"
         "for %%A in (%*) do if \"%%A\"==\"--dry-run\" set DRYRUN=1\r\n"
         "if defined DRYRUN goto :dry_run\r\n"
+        "for %%A in (%*) do if \"%%A\"==\"--quiet\" set QUIET=1\r\n"
+        "if defined QUIET goto :quiet_err\r\n"
         "if \"%2\"==\"o/slow\" goto :slow\r\n"
         "if \"%2\"==\"o/fail\" goto :fail\r\n"
         "if \"%2\"==\"o/noop\" goto :noop\r\n"
@@ -374,9 +389,20 @@ def _write_fake_hf(directory: Path, *, with_dry_run: bool = True, authenticated:
         ":download_help\r\n"
         f"{help_block}\r\n"
         "exit /b 0\r\n"
+        ":quiet_err\r\n"
+        "echo hf: error: unrecognized arguments: --quiet\r\n"
+        "exit /b 1\r\n"
         ":dry_run\r\n"
+        "if \"%2\"==\"o/slow\" goto :dry_slow\r\n"
+        "if \"%2\"==\"o/dryfail\" goto :dry_fail\r\n"
         f"{dry_block}\r\n"
         "exit /b 0\r\n"
+        ":dry_slow\r\n"
+        f"{sys.executable} -c \"import time; time.sleep(3)\"\r\n"
+        "exit /b 0\r\n"
+        ":dry_fail\r\n"
+        "echo ERROR: dry run failed\r\n"
+        "exit /b 3\r\n"
         ":slow\r\n"
         f"{sys.executable} -c \"import time; time.sleep(30)\"\r\n"
         "exit /b 0\r\n"
@@ -667,3 +693,204 @@ def test_preview_rejected_when_cli_lacks_dry_run(fake_hf_path):
     assert service.dry_run_supported is False
     with pytest.raises(HfCliError, match="--dry-run"):
         service.preview(HfDownloadRequest(repo_id="o/r"))
+
+
+# ---------------------------------------------------------------------------
+# auth: exit status is the truth, text is decoration
+# ---------------------------------------------------------------------------
+
+
+def test_whoami_exit_status_is_auth_truth():
+    service = HfCliService()
+    auths: list = []
+    service.auth_ready.connect(auths.append)
+    service._on_whoami("Some brand-new format without any user info", 0)
+    assert auths[-1].authenticated is True
+    assert auths[-1].username == ""
+    assert auths[-1].label == "Authenticated"
+    service._on_whoami("user:  alice", 0)
+    assert auths[-1].authenticated is True
+    assert auths[-1].username == "alice"
+    assert auths[-1].label == "Authenticated as alice"
+    service._on_whoami("alice\norgs: org1", 0)
+    assert auths[-1].username == "alice"
+    service._on_whoami("You are not logged in.", 1)
+    assert auths[-1].authenticated is False
+    assert auths[-1].username == ""
+
+
+# ---------------------------------------------------------------------------
+# entire repository + exclude
+# ---------------------------------------------------------------------------
+
+
+def test_request_entire_repository_allows_exclude():
+    request = HfDownloadRequest(
+        repo_id="o/r", selection_mode=HfSelectionMode.ENTIRE, exclude=["*.safetensors", "*.bin"]
+    )
+    assert request.exclude == ("*.safetensors", "*.bin")
+    assert request.filenames == ()
+    assert "exclude *.safetensors" in request.selection_summary()
+    with pytest.raises(ValueError, match="Entire-repository"):
+        HfDownloadRequest(repo_id="o/r", selection_mode=HfSelectionMode.ENTIRE, filenames=["a.gguf"])
+
+
+def test_build_download_argv_entire_with_exclude():
+    argv = build_download_argv(
+        CAPS, HfDownloadRequest(repo_id="o/r", selection_mode=HfSelectionMode.ENTIRE, exclude=["*.safetensors", "*.bin"])
+    )
+    assert argv.count("--exclude") == 2
+    assert argv[argv.index("--exclude") + 1] == "*.safetensors"
+    assert argv[argv.index("--exclude") + 3] == "*.bin"
+    assert "--include" not in argv
+
+
+# ---------------------------------------------------------------------------
+# dry-run output contract (updated parser)
+# ---------------------------------------------------------------------------
+
+
+def test_parse_dry_run_current_1x_header():
+    text = (
+        "[dry-run] Will download 2 files (out of 3) totalling 1.2GB.\r\n"
+        "FILE        SIZE\r\n"
+        "----------  ------\r\n"
+        "config.json  1.1KB\r\n"
+        "model.gguf   1.2GB\r\n"
+        "README.md    -\r\n"
+    )
+    report = parse_dry_run(text, 0)
+    assert report.parsed is True
+    assert report.total_files == 3
+    assert report.transfer_files == 2
+    assert report.transfer_text == "1.2GB"
+    assert [f.filename for f in report.files] == ["config.json", "model.gguf", "README.md"]
+    assert report.files[0].size_text == "1.1KB"
+    assert report.files[0].will_download is True
+    assert report.files[2].will_download is False  # "-" = already available
+
+
+def test_parse_dry_run_summary_without_table_keeps_counts_and_parsed():
+    text = "[dry-run] Will download 2 files (out of 3) totalling 1.2GB.\r\n"
+    report = parse_dry_run(text, 0)
+    assert report.parsed is True
+    assert report.total_files == 3
+    assert report.transfer_files == 2
+    assert report.files == ()
+
+
+def test_parse_dry_run_nonzero_exit_keeps_exit_code():
+    report = parse_dry_run("ERROR: dry run failed", 3)
+    assert report.exit_code == 3
+    assert report.parsed is False
+    assert report.raw == "ERROR: dry run failed"
+
+
+def test_preview_nonzero_exit_surfaces_failure(fake_hf_path):
+    _write_fake_hf(fake_hf_path)
+    service = HfCliService()
+    service.probe()
+    _spin_until(lambda: service.capabilities is not None and service.capabilities.path)
+    reports: list = []
+    service.preview_finished.connect(reports.append)
+    service.preview(HfDownloadRequest(repo_id="o/dryfail"))
+    _spin_until(lambda: reports)
+    report = reports[0]
+    assert report.exit_code == 3
+    assert report.parsed is False
+
+
+def test_fake_hf_rejects_quiet_like_real_1x_cli(fake_hf_path):
+    _write_fake_hf(fake_hf_path)
+    service = HfCliService()
+    service.probe()
+    _spin_until(lambda: service.capabilities is not None and service.capabilities.path)
+    reports: list[HfDryRunReport] = []
+    service.preview_finished.connect(reports.append)
+    service.preview(HfDownloadRequest(repo_id="o/r"))
+    _spin_until(lambda: reports)
+    # The fake mirrors huggingface_hub 1.x, where --quiet is unrecognized and
+    # fails the run. A successful preview therefore proves the argv no longer
+    # carries --quiet (the unexported contract the whole pairing depended on).
+    assert reports[0].exit_code == 0
+    assert reports[0].parsed is True
+
+
+# ---------------------------------------------------------------------------
+# preview lifecycle: repeated runs and stale callbacks
+# ---------------------------------------------------------------------------
+
+
+def test_preview_twice_clears_previous_reference(fake_hf_path):
+    _write_fake_hf(fake_hf_path)
+    service = HfCliService()
+    service.probe()
+    _spin_until(lambda: service.capabilities is not None and service.capabilities.path)
+    reports: list[HfDryRunReport] = []
+    service.preview_finished.connect(reports.append)
+    request = HfDownloadRequest(repo_id="o/r", selection_mode=HfSelectionMode.EXACT, filenames=["fake-model.gguf"])
+    service.preview(request)
+    _spin_until(lambda: len(reports) == 1)
+    assert service._preview_process is None
+    # Second run must not touch a deleted C++ object: the previous reference
+    # was cleared, so state() is never called on a dead QProcess.
+    service.preview(request)
+    _spin_until(lambda: len(reports) == 2)
+    assert reports[1].parsed
+    assert service._preview_process is None
+
+
+def test_stale_preview_cannot_overwrite_newer(fake_hf_path):
+    _write_fake_hf(fake_hf_path)
+    service = HfCliService()
+    service.probe()
+    _spin_until(lambda: service.capabilities is not None and service.capabilities.path)
+    reports: list[HfDryRunReport] = []
+    service.preview_finished.connect(reports.append)
+    service.preview(HfDownloadRequest(repo_id="o/slow"))  # slow dry run
+    QApplication.processEvents()
+    service.preview(HfDownloadRequest(repo_id="o/r"))  # replaces it immediately
+    _spin_until(lambda: len(reports) == 1)
+    assert reports[0].total_files == 3  # only the newer preview's result
+    # Let the killed slow preview's callbacks (if any) fire; still exactly one.
+    _spin_until(lambda: service._preview_process is None)
+    QApplication.processEvents()
+    time.sleep(0.5)
+    QApplication.processEvents()
+    assert len(reports) == 1
+    assert reports[0].total_files == 3
+
+
+# ---------------------------------------------------------------------------
+# queue: visible order == execution order
+# ---------------------------------------------------------------------------
+
+
+def test_jobs_visible_order_follows_move_queued_and_execution(fake_hf_path):
+    _write_fake_hf(fake_hf_path)
+    service = HfCliService()
+    service.probe()
+    _spin_until(lambda: service.capabilities is not None and service.capabilities.path)
+    states: dict[str, HfJobState] = {}
+    downloading: list[str] = []
+    service.job_state_changed.connect(
+        lambda job_id, state: (_track(states, job_id, state), downloading.append(job_id) if state == HfJobState.DOWNLOADING.value else None)
+    )
+    slow = service.request_download(HfDownloadRequest(repo_id="o/slow", local_dir=str(fake_hf_path / "m1")))
+    _spin_until(lambda: states.get(slow) == HfJobState.DOWNLOADING)
+    a = service.request_download(HfDownloadRequest(repo_id="o/r", local_dir=str(fake_hf_path / "a")))
+    b = service.request_download(HfDownloadRequest(repo_id="o/r", local_dir=str(fake_hf_path / "b")))
+    c = service.request_download(HfDownloadRequest(repo_id="o/r", local_dir=str(fake_hf_path / "c")))
+    assert [job.id for job in service.jobs()] == [slow, a, b, c]
+    service.move_queued(c, -1)
+    assert [job.id for job in service.jobs()] == [slow, a, c, b]
+    service.move_queued(c, -1)
+    assert [job.id for job in service.jobs()] == [slow, c, a, b]
+    service.cancel_active()
+    _spin_until(lambda: states.get(slow) == HfJobState.CANCELLED, timeout=60)
+    _spin_until(lambda: states.get(b) == HfJobState.COMPLETED, timeout=60)
+    # C was the new head of the queue: the DOWNLOADING sequence after the
+    # initial slow job must be exactly C, A, B.
+    assert downloading[1:] == [c, a, b]
+    # Pending rows are gone; completed history keeps stable submission order.
+    assert [job.id for job in service.jobs()] == [slow, a, b, c]

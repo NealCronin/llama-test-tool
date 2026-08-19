@@ -330,8 +330,8 @@ def test_model_inherit_ttl_removes_key(tmp_path):
     viewer = make_viewer(tmp_path)
     viewer.list.setCurrentRow(0)
     viewer._select(viewer.list.item(0))
-    assert viewer.ttl_mode.currentData() == "custom"
-    viewer.ttl_mode.setCurrentIndex(1)
+    assert viewer.ttl.explicit() == 300  # BASE stores ttl: 300
+    viewer.ttl.reset()  # unset -> inherit global default
     viewer._save_model_settings()
     entry = load_yaml(viewer.service().path)["models"]["llama-model"]
     assert "ttl" not in entry
@@ -342,10 +342,8 @@ def test_model_custom_ttl_and_unload_saved(tmp_path):
     viewer = make_viewer(tmp_path)
     viewer.list.setCurrentRow(0)
     viewer._select(viewer.list.item(0))
-    viewer.ttl_mode.setCurrentIndex(2)
-    viewer.ttl.setText("600")
-    viewer.unload_mode.setCurrentIndex(2)
-    viewer.unload.setText("30")
+    viewer.ttl.load(True, 600)
+    viewer.unload.load(True, 30)
     viewer._save_model_settings()
     entry = load_yaml(viewer.service().path)["models"]["llama-model"]
     assert entry["ttl"] == 600
@@ -672,3 +670,78 @@ def test_profiles_noop_save_preserves_comments_and_unknown_fields(tmp_path):
     assert "description: coder profile  # trailing comment" in text
     data = load_yaml(service.path)
     assert data["models"]["llama-model"]["unknownField"] == "preserved"
+
+
+# ---------------------------------------------------------------------------
+# TTL / unloadTimeout presence semantics (P1)
+# ---------------------------------------------------------------------------
+
+
+def test_ttl_absent_loads_unset_and_noop_keeps_absent(tmp_path):
+    text = "# llama-swap config\nmodels:\n  llama-model:\n    cmd: llama-server -m model.gguf\n"
+    viewer = make_viewer(tmp_path, text)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    assert viewer.ttl.explicit() is None
+    viewer._save_model_settings()
+    entry = load_yaml(viewer.service().path)["models"]["llama-model"]
+    assert "ttl" not in entry
+    assert "unloadTimeout" not in entry
+
+
+def test_ttl_minus_one_explicit_survives_noop(tmp_path):
+    text = BASE.replace("    ttl: 300\n", "    ttl: -1\n", 1)
+    viewer = make_viewer(tmp_path, text)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    assert viewer.ttl.explicit() == -1
+    viewer._save_model_settings()
+    assert load_yaml(viewer.service().path)["models"]["llama-model"]["ttl"] == -1
+
+
+def test_ttl_600_explicit_survives_noop(tmp_path):
+    text = BASE.replace("    ttl: 300\n", "    ttl: 600\n", 1)
+    viewer = make_viewer(tmp_path, text)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    assert viewer.ttl.explicit() == 600
+    viewer._save_model_settings()
+    assert load_yaml(viewer.service().path)["models"]["llama-model"]["ttl"] == 600
+
+
+def test_journey_model_timeout_state_roundtrip(tmp_path):
+    # Load explicit 600/30, unset both, save, reload: keys must be absent and
+    # a second no-op save must leave them absent.
+    text = BASE.replace("    ttl: 300\n", "    ttl: 600\n    unloadTimeout: 30\n", 1)
+    viewer = make_viewer(tmp_path, text)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    assert viewer.ttl.explicit() == 600
+    assert viewer.unload.explicit() == 30
+    viewer.ttl.reset()  # unset -> inherit global
+    viewer.unload.reset()
+    viewer._save_model_settings()
+    entry = load_yaml(viewer.service().path)["models"]["llama-model"]
+    assert "ttl" not in entry
+    assert "unloadTimeout" not in entry
+    viewer.refresh()
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    assert viewer.ttl.explicit() is None
+    assert viewer.unload.explicit() is None
+    viewer._save_model_settings()
+    entry = load_yaml(viewer.service().path)["models"]["llama-model"]
+    assert "ttl" not in entry and "unloadTimeout" not in entry
+
+
+def test_explicit_ttl_minus_one_and_unload_zero_survive_noop(tmp_path):
+    text = BASE.replace("    ttl: 300\n", "    ttl: -1\n    unloadTimeout: 0\n", 1)
+    viewer = make_viewer(tmp_path, text)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    assert viewer.ttl.explicit() == -1
+    assert viewer.unload.explicit() == 0
+    viewer._save_model_settings()
+    entry = load_yaml(viewer.service().path)["models"]["llama-model"]
+    assert entry["ttl"] == -1
+    assert entry["unloadTimeout"] == 0
