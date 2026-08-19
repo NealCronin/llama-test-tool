@@ -1,225 +1,549 @@
-"""Process manager around the installed official `hf` CLI.
+"""Asynchronous process manager around the installed official ``hf`` CLI.
 
-Downloads are executed by the real `hf download` binary through QProcess (never a
-shell), one item at a time. `hf` has no dry-run or file-listing subcommand in the
-installed release, so selection is expressed as explicit filenames and/or
-`--include`/`--exclude` globs, the exact argv is previewed before start, and
-downloaded files are detected by diffing the target folder before and after the
-run — a glob that matches nothing exits 0 silently, and that case is reported.
+Every CLI interaction — version, auth, ``download --help`` capability probing,
+dry-run previews, and downloads — runs through QProcess so a slow or hanging
+``hf`` can never block the GUI thread. ``shutil.which`` is the only synchronous
+discovery step.
+
+Secrets: the service never accepts or renders tokens. Authentication is the
+``hf`` CLI's own stored credential (``hf auth login``) or an inherited
+``HF_TOKEN`` environment variable, and :func:`redact_secrets` is applied to
+anything that is ever shown, as defense in depth.
 """
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QProcess, Signal
+from PySide6.QtCore import QObject, QProcess, QTimer, Signal
 
-from app.models.hf_download import HfDownloadRequest, HfDownloadResult
+from app.models.hf_download import (
+    HfAuthStatus,
+    HfCliCapabilities,
+    HfCliInfo,
+    HfDownloadRequest,
+    HfDownloadResult,
+    HfDryRunFile,
+    HfDryRunReport,
+    HfJobState,
+    HfRepoType,
+    HfSelectionMode,
+)
+
+# ---------------------------------------------------------------------------
+# Pure helpers (unit-testable without Qt event loops)
+# ---------------------------------------------------------------------------
 
 
 class HfCliError(Exception):
-    pass
+    """Raised when the hf CLI cannot satisfy a request."""
 
 
-@dataclass(frozen=True)
-class HfCliInfo:
-    path: str
-    hub_version: str
-
-
-def find_hf_cli() -> HfCliInfo:
-    """Locate the official `hf` CLI on PATH and read the huggingface_hub version."""
-    exe = shutil.which("hf") or shutil.which("hf.exe")
-    if not exe:
-        raise HfCliError(
-            "The official 'hf' CLI was not found on PATH. Install it with: python -m pip install -U huggingface_hub"
-        )
-    try:
-        proc = subprocess.run([exe, "version"], capture_output=True, text=True, timeout=30, check=False)
-    except (OSError, subprocess.SubprocessError) as error:
-        raise HfCliError(f"Could not run 'hf version': {error}") from error
-    version = "unknown"
-    for line in (proc.stdout or "").splitlines():
-        if "huggingface_hub version:" in line:
-            version = line.split(":", 1)[1].strip() or "unknown"
-    return HfCliInfo(path=exe, hub_version=version)
-
-
-def build_download_argv(hf_path: str, request: HfDownloadRequest, local_dir: Path) -> list[str]:
-    argv = [hf_path, "download", request.repo_id]
-    argv.extend(request.filenames)
-    if request.revision:
-        argv += ["--revision", request.revision]
-    if request.include:
-        argv += ["--include", *request.include]
-    if request.exclude:
-        argv += ["--exclude", *request.exclude]
-    argv += ["--local-dir", str(local_dir)]
-    if request.max_workers:
-        argv += ["--max-workers", str(request.max_workers)]
-    if request.token:
-        argv += ["--token", request.token]
-    argv.append("--quiet")
-    return argv
+def locate_hf_cli() -> str | None:
+    """Synchronous, process-free discovery. Safe to call on the GUI thread."""
+    return shutil.which("hf") or shutil.which("hf.exe")
 
 
 def render_command_line(argv: list[str]) -> str:
+    """Render an argv list for display. Execution always uses the argv list."""
     return " ".join(subprocess.list2cmdline([part]) for part in argv)
 
 
+_SECRET = re.compile(r"(?<![A-Za-z0-9_])(hf_[A-Za-z0-9]{8,})")
+
+
+def redact_secrets(text: str) -> str:
+    """Mask anything that looks like a Hugging Face token (defense in depth)."""
+    return _SECRET.sub("hf_***", text)
+
+
+def parse_hub_version(text: str) -> str:
+    """``hf version`` prints ``huggingface_hub version: X.Y.Z``."""
+    for line in text.splitlines():
+        if "huggingface_hub version:" in line:
+            return line.split(":", 1)[1].strip()
+    return ""
+
+
+def parse_whoami(text: str) -> str:
+    """``hf auth whoami`` prints ``user:  <username>`` when authenticated."""
+    for line in text.splitlines():
+        match = re.match(r"\s*user\s*:\s*(\S+)", line, re.IGNORECASE)
+        if match:
+            return match.group(1)
+    return ""
+
+
+_HELP_FLAGS = {
+    "repo_type": "--repo-type",
+    "revision": "--revision",
+    "include": "--include",
+    "exclude": "--exclude",
+    "cache_dir": "--cache-dir",
+    "local_dir": "--local-dir",
+    "force_download": "--force-download",
+    "dry_run": "--dry-run",
+    "max_workers": "--max-workers",
+}
+
+
+def parse_download_help(text: str) -> dict[str, bool]:
+    """Record which optional ``hf download`` flags the installed CLI offers."""
+    return {name: flag in text for name, flag in _HELP_FLAGS.items()}
+
+
+_DRY_RUN_SUMMARY = re.compile(
+    r"\[dry-run\]\s+Will download\s+(\d+)\s+files?\s+\(out of\s+(\d+)\)\s+totalling\s+(.+?)\.\s*$",
+    re.MULTILINE,
+)
+
+
+def parse_dry_run(text: str, exit_code: int = 0) -> HfDryRunReport:
+    """Parse ``hf download --dry-run`` output (huggingface_hub >= 1.0.0).
+
+    The 1.x CLI prints a summary line plus a two-column table
+    (``File`` / ``Bytes to download``). When the shape is unrecognizable the
+    report is returned with ``parsed=False`` so the caller shows the raw text
+    instead of inventing rows.
+    """
+    match = _DRY_RUN_SUMMARY.search(text)
+    if match is None:
+        return HfDryRunReport(exit_code=exit_code, parsed=False, raw=text)
+    files: list[HfDryRunFile] = []
+    size_col: int | None = None
+    for line in text.splitlines():
+        if "Bytes to download" in line:
+            size_col = line.index("Bytes to download")
+            continue
+        if size_col is None:
+            continue
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if "-" in stripped and set(stripped) <= {"-", " "}:
+            continue  # dash separator row
+        if size_col < len(line):
+            filename = line[:size_col].strip()
+            size = line[size_col:].strip()
+        else:
+            filename, size = stripped, ""
+        if not filename:
+            continue
+        files.append(HfDryRunFile(filename=filename, size_text="" if size == "-" else size, will_download=size != "-"))
+    return HfDryRunReport(
+        exit_code=exit_code,
+        total_files=int(match.group(2)),
+        transfer_files=int(match.group(1)),
+        transfer_text=match.group(3).strip(),
+        files=tuple(files),
+        parsed=True,
+        raw=text,
+    )
+
+
+def build_download_argv(caps: HfCliCapabilities, request: HfDownloadRequest, dry_run: bool = False) -> list[str]:
+    """Render the exact argv for ``hf download``; raises HfCliError when the
+    installed CLI lacks an option the request needs. Never a shell string."""
+
+    def require(capability: str) -> None:
+        if not getattr(caps, capability):
+            raise HfCliError(
+                f"The installed hf CLI does not support {_HELP_FLAGS[capability]}; update with: python -m pip install -U huggingface_hub"
+            )
+
+    if request.repo_type is not HfRepoType.MODEL:
+        require("repo_type")
+    if request.revision:
+        require("revision")
+    if request.include:
+        require("include")
+    if request.exclude:
+        require("exclude")
+    if request.local_dir:
+        require("local_dir")
+    if request.cache_dir:
+        require("cache_dir")
+    if request.force_download:
+        require("force_download")
+    if request.max_workers is not None:
+        require("max_workers")
+    if dry_run:
+        require("dry_run")
+
+    argv = [caps.path, "download", request.repo_id]
+    if request.selection_mode is HfSelectionMode.EXACT:
+        argv.extend(request.filenames)
+    if request.repo_type is not HfRepoType.MODEL:
+        argv += ["--repo-type", request.repo_type.value]
+    if request.revision:
+        argv += ["--revision", request.revision]
+    for pattern in request.include:
+        argv += ["--include", pattern]
+    for pattern in request.exclude:
+        argv += ["--exclude", pattern]
+    if request.cache_dir:
+        argv += ["--cache-dir", request.cache_dir]
+    if request.local_dir:
+        argv += ["--local-dir", request.local_dir]
+    if request.force_download:
+        argv.append("--force-download")
+    if request.max_workers is not None:
+        argv += ["--max-workers", str(request.max_workers)]
+    if dry_run:
+        # Quiet mode keeps the dry-run table machine-readable.
+        argv += ["--dry-run", "--quiet"]
+    return argv
 def _snapshot(directory: Path) -> set[str]:
     if not directory.is_dir():
         return set()
-    return {str(path.relative_to(directory)) for path in directory.rglob("*") if path.is_file()}
+    return {path.relative_to(directory).as_posix() for path in directory.rglob("*") if path.is_file()}
 
 
-def _tail(lines: list[str], count: int = 12) -> str:
-    return "\n".join(lines[-count:])
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class HfJob:
+    id: str
+    request: HfDownloadRequest
+    state: HfJobState
+    result: HfDownloadResult | None = None
 
 
 class HfCliService(QObject):
-    """Sequential download queue executing `hf download` via QProcess."""
+    """Sequential download queue plus asynchronous CLI probes.
 
-    output = Signal(str, str)  # request id, console line
-    state_changed = Signal(str, str)  # request id, state text
-    finished = Signal(str, object)  # request id, HfDownloadResult
-    all_finished = Signal(bool)  # True when the queue is fully drained (any successful download included)
+    Exactly one download process runs at a time; further jobs stay queued and
+    can be reordered, removed, or retried from the UI while one is active.
+    Cancellation kills only the active process — the queue survives.
+    """
+
+    info_ready = Signal(object)  # HfCliInfo
+    capabilities_ready = Signal(object)  # HfCliCapabilities
+    auth_ready = Signal(object)  # HfAuthStatus
+    job_output = Signal(str, str)  # job id, console line
+    job_state_changed = Signal(str, str)  # job id, HfJobState
+    job_finished = Signal(str, object)  # job id, HfDownloadResult
+    preview_finished = Signal(object)  # HfDryRunReport
+    queue_changed = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._queue: deque[tuple[str, HfDownloadRequest, Path]] = deque()
+        self.info = HfCliInfo(path="")
+        self.capabilities: HfCliCapabilities | None = None
+        self.auth = HfAuthStatus()
+        self._jobs: dict[str, HfJob] = {}
+        self._order: list[str] = []
+        self._queue: deque[str] = deque()
+        self._active: str | None = None
         self._process: QProcess | None = None
-        self._current: tuple[str, HfDownloadRequest, Path, set[str]] | None = None
-        self._stdout_tail: list[str] = []
-        self._stderr_tail: list[str] = []
-        self._stdout_pending = ""
-        self._stderr_pending = ""
+        self._preview_process: QProcess | None = None
+        self._cancelling = False
+        self._before: set[str] = set()
         self._counter = 0
-        self._had_success = False
-        self._info: HfCliInfo | None = None
-        self._stopping = False
+        self._output_cap = 2000
+
+    # ------------------------------------------------------------------ probes
+    def probe(self) -> None:
+        """Refresh CLI path, version, capabilities, and auth — all async.
+
+        Each probe is its own QProcess; none blocks the GUI thread, and a
+        hanging ``hf`` only leaves the corresponding status field stale.
+        """
+        path = locate_hf_cli()
+        if not path:
+            self.info = HfCliInfo(path="")
+            self.capabilities = HfCliCapabilities(path="")
+            self.auth = HfAuthStatus()
+            self.info_ready.emit(self.info)
+            self.capabilities_ready.emit(self.capabilities)
+            self.auth_ready.emit(self.auth)
+            return
+        self.info = HfCliInfo(path=path, hub_version=self.info.hub_version)
+        self.info_ready.emit(self.info)
+        self._spawn([path, "version"], on_done=lambda output, code, _status: self._on_version(output, code))
+        self._spawn([path, "download", "--help"], on_done=lambda output, code, _status: self._on_help(path, output, code))
+        self._spawn([path, "auth", "whoami"], on_done=lambda output, code, _status: self._on_whoami(output, code))
+
+    def _on_version(self, output: str, code: int) -> None:
+        version = parse_hub_version(output) if code == 0 else ""
+        self.info = HfCliInfo(path=self.info.path, hub_version=version)
+        self.info_ready.emit(self.info)
+
+    def _on_help(self, path: str, output: str, code: int) -> None:
+        flags = parse_download_help(output) if code == 0 else dict.fromkeys(_HELP_FLAGS, False)
+        self.capabilities = HfCliCapabilities(path=path, hub_version=self.info.hub_version, **flags)
+        self.capabilities_ready.emit(self.capabilities)
+
+    def _on_whoami(self, output: str, code: int) -> None:
+        username = parse_whoami(output) if code == 0 else ""
+        self.auth = HfAuthStatus(authenticated=bool(username), username=username)
+        self.auth_ready.emit(self.auth)
+
+    # ------------------------------------------------------------------ queue
+    def jobs(self) -> list[HfJob]:
+        return [self._jobs[job_id] for job_id in self._order if job_id in self._jobs]
+
+    def job(self, job_id: str) -> HfJob | None:
+        return self._jobs.get(job_id)
 
     @property
     def busy(self) -> bool:
-        return bool(self._process is not None or self._queue)
+        """True while a download process is running."""
+        return self._process is not None and self._process.state() != QProcess.ProcessState.NotRunning
 
-    def enqueue(self, request: HfDownloadRequest, local_dir: Path) -> str:
+    @property
+    def active_id(self) -> str | None:
+        return self._active
+
+    def request_download(self, request: HfDownloadRequest) -> str:
+        """Enqueue an immutable request snapshot; the form may change freely afterwards."""
         self._counter += 1
-        request_id = f"hf-{self._counter}"
-        self._queue.append((request_id, request, local_dir))
-        self.state_changed.emit(request_id, "Queued")
-        self.output.emit(request_id, f"Queued: {request.describe()}")
+        job_id = f"hf-{self._counter}"
+        self._jobs[job_id] = HfJob(job_id, request, HfJobState.QUEUED)
+        self._order.append(job_id)
+        self._queue.append(job_id)
+        self.job_state_changed.emit(job_id, HfJobState.QUEUED)
+        self.queue_changed.emit()
         self._pump()
-        return request_id
+        return job_id
 
-    def stop(self) -> None:
-        """Cancel queued items and terminate the running download."""
-        self._stopping = True
-        while self._queue:
-            request_id, request, _ = self._queue.popleft()
-            result = HfDownloadResult(request=request, success=False, detail="Cancelled before start.")
-            self._record(request_id, result)
-        if self._process is not None and self._process.state() != QProcess.ProcessState.NotRunning:
-            self.output.emit(self._current[0] if self._current else "", "Stopping: terminating the hf process…")
-            self._process.terminate()
-            if self._process.state() != QProcess.ProcessState.NotRunning:
-                self._process.kill()
+    def remove_queued(self, job_id: str) -> bool:
+        job = self._jobs.get(job_id)
+        if job is None or job.state is not HfJobState.QUEUED or job_id not in self._queue:
+            return False
+        self._queue.remove(job_id)
+        del self._jobs[job_id]
+        self.queue_changed.emit()
+        return True
 
+    def move_queued(self, job_id: str, delta: int) -> bool:
+        """Reorder a queued (never the active) job within the pending queue."""
+        items = list(self._queue)
+        if job_id not in items:
+            return False
+        index = items.index(job_id)
+        target = index + delta
+        if target < 0 or target >= len(items):
+            return False
+        items[index], items[target] = items[target], items[index]
+        self._queue.clear()
+        self._queue.extend(items)
+        self.queue_changed.emit()
+        return True
+
+    def retry(self, job_id: str) -> bool:
+        """Re-queue a failed or cancelled job (its original request is reused)."""
+        job = self._jobs.get(job_id)
+        if job is None or job.state not in (HfJobState.FAILED, HfJobState.CANCELLED):
+            return False
+        job.state = HfJobState.QUEUED
+        job.result = None
+        self._queue.append(job_id)
+        self.job_state_changed.emit(job_id, HfJobState.QUEUED)
+        self.queue_changed.emit()
+        self._pump()
+        return True
+
+    def clear_queue(self) -> None:
+        """Remove every not-yet-started job; the active job is untouched."""
+        if not self._queue:
+            return
+        for job_id in list(self._queue):
+            self._queue.remove(job_id)
+            del self._jobs[job_id]
+        self.queue_changed.emit()
+
+    def cancel_active(self) -> None:
+        """Terminate the running download; the remaining queue stays queued.
+
+        Graceful first: terminate(), then a delayed kill if the process has
+        not exited within five seconds.
+        """
+        process = self._process
+        if process is None or process.state() == QProcess.ProcessState.NotRunning:
+            return
+        self._cancelling = True
+        process.terminate()
+        self._arm_kill_fallback(process)
+
+    @staticmethod
+    def _arm_kill_fallback(process: QProcess) -> None:
+        def kill_if_alive() -> None:
+            try:
+                if process.state() != QProcess.ProcessState.NotRunning:
+                    process.kill()
+            except RuntimeError:
+                pass  # process object already destroyed
+
+        QTimer.singleShot(5_000, kill_if_alive)
+
+    def shutdown(self) -> None:
+        """App-exit path: stop the active process and drop the pending queue.
+
+        Kills immediately (no graceful window): a QProcess destroyed while
+        still running can abort the process on Windows.
+        """
+        self.clear_queue()
+        for process in (self._process, self._preview_process):
+            if process is None:
+                continue
+            try:
+                running = process.state() != QProcess.ProcessState.NotRunning
+            except RuntimeError:
+                continue  # C++ object already deleted
+            if not running:
+                continue
+            self._cancelling = True
+            try:
+                process.kill()
+            except RuntimeError:
+                pass
+
+    # ------------------------------------------------------------------ preview
+    @property
+    def dry_run_supported(self) -> bool:
+        return bool(self.capabilities is not None and self.capabilities.path and self.capabilities.dry_run)
+
+    def preview(self, request: HfDownloadRequest) -> None:
+        """Run a real ``hf download ... --dry-run`` (non-blocking).
+
+        The dry run never mutates the destination. Raises HfCliError when the
+        installed CLI predates ``--dry-run`` (huggingface_hub < 1.0.0).
+        """
+        caps = self.capabilities
+        argv = build_download_argv(caps, request, dry_run=True)
+        if self._preview_process is not None and self._preview_process.state() != QProcess.ProcessState.NotRunning:
+            self._preview_process.terminate()
+        self._preview_process = self._spawn(
+            argv, on_done=lambda output, code, _status: self.preview_finished.emit(parse_dry_run(output, code))
+        )
+
+    # ------------------------------------------------------------------ pump
     def _pump(self) -> None:
         if self._process is not None or not self._queue:
-            self._drain_check()
             return
-        request_id, request, local_dir = self._queue.popleft()
-        if self._info is None:
-            try:
-                self._info = find_hf_cli()
-            except HfCliError as error:
-                self._record(request_id, HfDownloadResult(request=request, success=False, detail=str(error)))
-                self._pump()
-                return
-        info = self._info
-        local_dir.mkdir(parents=True, exist_ok=True)
-        argv = build_download_argv(info.path, request, local_dir)
-        self.state_changed.emit(request_id, "Downloading")
-        self.output.emit(request_id, f"[hf {info.hub_version}] {render_command_line(argv)}")
-        before = _snapshot(local_dir)
-        process = QProcess(self)
-        self._process = process
-        self._current = (request_id, request, local_dir, before)
-        self._stdout_tail, self._stderr_tail = [], []
-        self._stdout_pending, self._stderr_pending = "", ""
-        process.readyReadStandardOutput.connect(self._read_stdout)
-        process.readyReadStandardError.connect(self._read_stderr)
-        process.finished.connect(self._on_finished)
-        process.start(info.path, argv[1:])
+        job_id = self._queue.popleft()
+        job = self._jobs[job_id]
+        caps = self.capabilities
+        if caps is None or not caps.path:
+            self._finish_job(job, HfDownloadResult(request=job.request, exit_code=-1, ok=False, detail="hf CLI not found on PATH. Install with: python -m pip install -U huggingface_hub"))
+            self._pump()
+            return
+        if job.request.local_dir:
+            Path(job.request.local_dir).mkdir(parents=True, exist_ok=True)
+        try:
+            argv = build_download_argv(caps, job.request)
+        except HfCliError as error:
+            self._finish_job(job, HfDownloadResult(request=job.request, exit_code=-1, ok=False, detail=str(error)))
+            self._pump()
+            return
+        job.state = HfJobState.DOWNLOADING
+        self.job_state_changed.emit(job_id, job.state)
+        self.job_output.emit(job_id, redact_secrets(f"$ {render_command_line(argv)}"))
+        self._before = _snapshot(Path(job.request.local_dir)) if job.request.local_dir else set()
+        self._active = job_id
+        self._cancelling = False
+        self._process = self._spawn(
+            argv,
+            on_line=lambda line: self.job_output.emit(job_id, redact_secrets(line)),
+            on_done=lambda output, code, status: self._on_download_finished(job, output, code, status),
+        )
 
-    def _read_stdout(self) -> None:
-        if self._process is None:
-            return
-        chunk = bytes(self._process.readAllStandardOutput().data()).decode("utf-8", "replace")
-        self._stdout_pending += chunk
-        while "\n" in self._stdout_pending:
-            line, self._stdout_pending = self._stdout_pending.split("\n", 1)
-            self._emit_line(line, "stdout")
-
-    def _read_stderr(self) -> None:
-        if self._process is None:
-            return
-        chunk = bytes(self._process.readAllStandardError().data()).decode("utf-8", "replace")
-        self._stderr_pending += chunk
-        while "\n" in self._stderr_pending:
-            line, self._stderr_pending = self._stderr_pending.split("\n", 1)
-            self._emit_line(line, "stderr")
-
-    def _emit_line(self, line: str, stream: str) -> None:
-        if not line.strip():
-            return
-        request_id = self._current[0] if self._current else ""
-        self.output.emit(request_id, line)
-        tail = self._stdout_tail if stream == "stdout" else self._stderr_tail
-        tail.append(line)
-        if len(tail) > 12:
-            tail.pop(0)
-
-    def _on_finished(self, code: int, status: QProcess.ExitStatus) -> None:
-        process, self._process = self._process, None
-        if process is not None:
-            process.deleteLater()
-        if self._current is None:
-            return
-        request_id, request, local_dir, before = self._current
-        self._current = None
-        # Flush buffered tails.
-        for pending, handler in ((self._stdout_pending, self._stdout_tail), (self._stderr_pending, self._stderr_tail)):
-            if pending.strip():
-                handler.append(pending)
-        self._stdout_pending = self._stderr_pending = ""
-        after = _snapshot(local_dir)
-        new_files = sorted(after - before)
-        if self._stopping:
-            self._stopping = False
-            result = HfDownloadResult(request=request, success=False, files=new_files, detail="Stopped by user.")
-        elif status == QProcess.ExitStatus.NormalExit and code == 0:
-            detail = f"{len(new_files)} new file(s) in {local_dir.name}." if new_files else "Completed, but no new files were detected — the selection may match nothing."
-            result = HfDownloadResult(request=request, success=True, files=new_files, detail=detail)
+    def _on_download_finished(self, job: HfJob, output: str, code: int, status) -> None:
+        self._process = None
+        self._active = None
+        after = _snapshot(Path(job.request.local_dir)) if job.request.local_dir else set()
+        new_files = tuple(sorted(after - self._before))
+        if self._cancelling:
+            state, ok, detail = HfJobState.CANCELLED, False, "Cancelled by user."
+        elif code == 0 and status == QProcess.ExitStatus.NormalExit:
+            # Exit status is the primary success criterion; the folder diff is
+            # supplemental, so cached or force-replaced files are not failures.
+            state, ok = HfJobState.COMPLETED, True
+            detail = f"Completed successfully; {len(new_files)} new file(s)." if new_files else "Completed successfully; no new pathnames were created."
         else:
-            error_lines = self._stderr_tail or self._stdout_tail or [f"hf exited with code {code}."]
-            result = HfDownloadResult(request=request, success=False, files=new_files, detail=_tail(error_lines))
-        self._record(request_id, result)
+            state, ok = HfJobState.FAILED, False
+            tail = [line for line in output.splitlines() if line.strip()][-5:]
+            detail = "\n".join(tail) if tail else f"hf exited with code {code}."
+        result = HfDownloadResult(request=job.request, exit_code=code, ok=ok, detail=redact_secrets(detail), new_files=new_files, output=redact_secrets(output))
+        self._finish_job(job, result, state=state)
         self._pump()
 
-    def _record(self, request_id: str, result: HfDownloadResult) -> None:
-        self._had_success = self._had_success or result.success
-        state = "Done" if result.success else "Failed" if not result.detail.startswith(("Cancelled", "Stopped")) else "Cancelled"
-        self.state_changed.emit(request_id, state)
-        self.output.emit(request_id, f"{state}: {result.request.describe()} — {result.detail}")
-        self.finished.emit(request_id, result)
+    def _finish_job(self, job: HfJob, result: HfDownloadResult, state: HfJobState | None = None) -> None:
+        job.state = state or (HfJobState.COMPLETED if result.ok else HfJobState.FAILED)
+        job.result = result
+        self.job_state_changed.emit(job.id, job.state)
+        self.job_output.emit(job.id, f"{job.state.value}: {result.detail}")
+        self.job_finished.emit(job.id, result)
+        self.queue_changed.emit()
 
-    def _drain_check(self) -> None:
-        if self._process is None and not self._queue:
-            self.all_finished.emit(self._had_success)
-            self._had_success = False
+    # ------------------------------------------------------------------ process
+    def _spawn(self, argv: list[str], on_line=None, on_done=None) -> QProcess:
+        """Start a QProcess; report line chunks and the final merged output.
 
+        Handles start failures (errorOccurred without finished) so probes and
+        jobs always reach a terminal state.
+        """
+        process = QProcess(self)
+        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        state = {"pending": "", "lines": [], "done": False}
+
+        def emit_line(line: str) -> None:
+            if not line.strip():
+                return
+            state["lines"].append(line)
+            if len(state["lines"]) > self._output_cap:
+                del state["lines"][: len(state["lines"]) - self._output_cap]
+            if on_line:
+                on_line(line)
+
+        def finish(code: int, status, output_override: str | None = None) -> None:
+            if state["done"]:
+                return
+            state["done"] = True
+            if state["pending"].strip():
+                emit_line(state["pending"])
+            if on_done:
+                on_done(output_override if output_override is not None else "\n".join(state["lines"]), code, status)
+            for signal in (process.readyReadStandardOutput, process.errorOccurred, process.finished):
+                try:
+                    signal.disconnect()
+                except (RuntimeError, TypeError):
+                    pass
+            try:
+                process.deleteLater()
+            except RuntimeError:
+                pass
+
+        def drain() -> None:
+            try:
+                data = bytes(process.readAllStandardOutput().data()).decode("utf-8", "replace")
+            except RuntimeError:
+                return
+            text = state["pending"] + data
+            state["pending"] = ""
+            while "\n" in text:
+                line, text = text.split("\n", 1)
+                emit_line(line)
+            state["pending"] = text
+
+        def on_error(_error) -> None:
+            finish(-1, QProcess.ExitStatus.CrashExit, "Failed to start the hf process.")
+
+        def on_finished(code: int, status) -> None:
+            drain()
+            finish(code, status)
+
+        process.readyReadStandardOutput.connect(drain)
+        process.errorOccurred.connect(on_error)
+        process.finished.connect(on_finished)
+        process.start(argv[0], argv[1:])
+        return process

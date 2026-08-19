@@ -111,6 +111,14 @@ class CommandBuilder(QWidget):
         self.catalog_status.setText(f"Argument catalog: {catalog.source} ({len(catalog.specs)} flags)")
         self.rebuild()
 
+    def refresh_folder_for(self, canonical_name: str) -> bool:
+        """Re-scan a folder-backed row's options in place (post-download refresh)."""
+        for row in self.rows:
+            if row.spec.canonical_name == canonical_name:
+                row.refresh_folder()
+                return True
+        return False
+
     def rebuild(self) -> None:
         while self.rows:
             row = self.rows.pop()

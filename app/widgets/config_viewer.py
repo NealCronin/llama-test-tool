@@ -238,7 +238,14 @@ class ConfigViewer(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, str(model_id))
             self.list.addItem(item)
         self._filter(self.search.text())
-        self._select(self.list.currentItem() if self.list.count() else None, restore=selected)
+        current = None
+        if selected is not None:
+            for index in range(self.list.count()):
+                item = self.list.item(index)
+                if item.data(Qt.ItemDataRole.UserRole) == selected:
+                    current = item
+                    break
+        self._select(current, restore=selected)
         for editor in (
             self.general_editor, self.logging_editor, self.activity_editor, self.security_editor, self.macros_editor,
             self.hooks_editor, self.upstream_editor, self.profiles_editor, self.selectors_editor, self.routing_editor, self.peers_editor,

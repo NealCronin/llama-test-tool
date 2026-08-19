@@ -7,6 +7,7 @@ level survive; a failed validation leaves the file untouched.
 from __future__ import annotations
 
 import re
+from ruamel.yaml.comments import CommentedMap
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -32,7 +33,6 @@ from app.widgets.structured_yaml import StructuredYamlEditor, parse_structured_y
 
 _MACRO_NAME = re.compile(r"^[A-Za-z0-9_-]+$")
 _RESERVED_MACRO_NAMES = {"PID", "PORT", "MODEL_ID"}
-_PROFILE_ID = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 def _presence_hint() -> QLabel:
@@ -144,6 +144,14 @@ class _MultiItemMixin:
 
     def _multi_ids(self) -> list[str]:
         return [self._list.item(index).text() for index in range(self._list.count())]
+
+    @staticmethod
+    def _same_sequence(current, desired) -> bool:
+        """Order-aware comparison with str normalization for YAML scalars."""
+        try:
+            return [str(value) for value in current] == [str(value) for value in desired]
+        except TypeError:
+            return False
 
     def _multi_on_selection(self, row: int) -> None:
         if self._displayed is not None:
@@ -594,18 +602,24 @@ class ProfilesEditor(_MultiItemMixin, _SectionEditor):
         self.body.addLayout(row)
         self._multi_init()
 
+    def _validate_new_profile_id(self, profile_id: str) -> None:
+        """Bundled-schema check: profile IDs are any non-empty string (propertyNames minLength 1)."""
+        profile_id = profile_id.strip()
+        if not profile_id:
+            raise ValueError("Profile ID cannot be empty.")
+        if profile_id in self._multi_ids():
+            raise ValueError(f"A profile with ID {profile_id!r} already exists.")
+
     def _add_profile(self) -> None:
-        name, ok = QInputDialog.getText(self, "Add Profile", "Profile ID (letters, digits, _ or -):")
-        if not ok or not name.strip():
+        name, ok = QInputDialog.getText(self, "Add Profile", "Profile ID (any non-empty string):")
+        if not ok:
             return
-        name = name.strip()
-        if not _PROFILE_ID.match(name):
-            QMessageBox.warning(self, "Profiles", "Profile IDs use letters, digits, underscore, or dash.")
+        try:
+            self._validate_new_profile_id(name)
+        except ValueError as error:
+            QMessageBox.warning(self, "Profiles", str(error))
             return
-        if name in self._multi_ids():
-            QMessageBox.warning(self, "Profiles", "A profile with that ID already exists.")
-            return
-        self.list.addItem(QListWidgetItem(name))
+        self.list.addItem(QListWidgetItem(name.strip()))
         self.list.setCurrentItem(self.list.item(self.list.count() - 1))
 
     def _remove_profile(self) -> None:
@@ -654,18 +668,24 @@ class ProfilesEditor(_MultiItemMixin, _SectionEditor):
         draft["pins"] = pins
         if not pins:
             raise ValueError(f"Profile {profile_id!r} needs at least one pin.")
-        for source, target in pins:
+        for source, _target in pins:
             if not source:
-                raise ValueError(f"Profile {profile_id!r} has a pin without a source model ID.")
-            if not target:
-                raise ValueError(f"Profile {profile_id!r} pin {source!r} needs a target model ID.")
+                raise ValueError(f"Profile {profile_id!r} has a pin without a source model ID; a blank target disables the pin.")
 
     def _multi_write_entry(self, entry, draft: dict) -> None:
-        if draft["description"].strip():
-            entry["description"] = draft["description"].strip()
-        else:
-            entry.pop("description", None)
-        entry["pins"] = {source: target for source, target in draft["pins"]}
+        description = draft["description"].strip()
+        if description:
+            if str(entry.get("description", "")) != description:
+                entry["description"] = description
+        elif "description" in entry:
+            entry.pop("description")
+        desired = [(source, (target if target else None)) for source, target in draft["pins"]]
+        current = [(str(key), (None if value is None else str(value))) for key, value in (entry.get("pins") or {}).items()]
+        if current != desired:
+            pins = CommentedMap()
+            for source, target in desired:
+                pins[source] = target
+            entry["pins"] = pins
 
 
 class SelectorsEditor(_MultiItemMixin, _SectionEditor):
@@ -740,7 +760,7 @@ class SelectorsEditor(_MultiItemMixin, _SectionEditor):
             "name": str(entry.get("name", "")),
             "description": str(entry.get("description", "")),
             "unlisted": bool(entry.get("unlisted", False)),
-            "spillover": str(settings.get("spillover", 1)) if settings else None,
+            "spillover": str(settings["spillover"]) if settings and "spillover" in settings else None,
             "metadata": structured_yaml_text(entry.get("metadata")),
         }
 
@@ -797,36 +817,49 @@ class SelectorsEditor(_MultiItemMixin, _SectionEditor):
             parse_structured_yaml(draft["metadata"])
 
     def _multi_write_entry(self, entry, draft: dict) -> None:
-        entry["strategy"] = draft["strategy"]
-        entry["targets"] = list(draft["targets"])
-        if draft["name"].strip():
-            entry["name"] = draft["name"].strip()
-        else:
-            entry.pop("name", None)
-        if draft["description"].strip():
-            entry["description"] = draft["description"].strip()
-        else:
-            entry.pop("description", None)
+        if str(entry.get("strategy", "warm")) != draft["strategy"]:
+            entry["strategy"] = draft["strategy"]
+        if not self._same_sequence(entry.get("targets") or [], draft["targets"]):
+            entry["targets"] = list(draft["targets"])
+        name = draft["name"].strip()
+        if name:
+            if str(entry.get("name", "")) != name:
+                entry["name"] = name
+        elif "name" in entry:
+            entry.pop("name")
+        description = draft["description"].strip()
+        if description:
+            if str(entry.get("description", "")) != description:
+                entry["description"] = description
+        elif "description" in entry:
+            entry.pop("description")
         if draft["unlisted"]:
-            entry["unlisted"] = True
-        else:
-            entry.pop("unlisted", None)
+            if entry.get("unlisted") is not True:
+                entry["unlisted"] = True
+        elif entry.get("unlisted") is True:
+            entry.pop("unlisted")
         settings = entry.get("settings")
         if draft["strategy"] == "spillover":
-            if not isinstance(settings, dict):
-                settings = {}
+            if not isinstance(settings, (CommentedMap, dict)):
+                settings = CommentedMap()
                 entry["settings"] = settings
-            settings["spillover"] = int(draft["spillover"])
-        elif isinstance(settings, dict):
-            settings.pop("spillover", None)
+            if draft["spillover"] is None:
+                if "spillover" in settings:
+                    settings.pop("spillover")
+            else:
+                value = int(draft["spillover"])
+                if settings.get("spillover") != value:
+                    settings["spillover"] = value
+        elif isinstance(settings, (CommentedMap, dict)) and "spillover" in settings:
+            settings.pop("spillover")
             if not settings:
-                entry.pop("settings", None)
+                entry.pop("settings")
         metadata = parse_structured_yaml(draft["metadata"])
         if metadata:
-            entry["metadata"] = metadata
+            if entry.get("metadata") != metadata:
+                entry["metadata"] = metadata
         else:
             entry.pop("metadata", None)
-
 
 class RoutingEditor(_MultiItemMixin, _SectionEditor):
     def __init__(self, parent=None) -> None:
@@ -885,6 +918,7 @@ class RoutingEditor(_MultiItemMixin, _SectionEditor):
         router_form.addRow(self.matrix_box)
         self.body.addWidget(router_group)
 
+        self._models: list[str] = []
         self._multi_init()
         self.router_use.currentIndexChanged.connect(self._router_mode_changed)
         self._router_mode_changed()
@@ -953,11 +987,14 @@ class RoutingEditor(_MultiItemMixin, _SectionEditor):
 
     def _multi_write_entry(self, entry, draft: dict) -> None:
         for key in ("swap", "exclusive", "persistent"):
-            if draft[key] is not None:
-                entry[key] = bool(draft[key])
-            else:
-                entry.pop(key, None)
-        entry["members"] = list(draft["members"])
+            value = draft[key]
+            if value is None:
+                if key in entry:
+                    entry.pop(key)
+            elif bool(entry.get(key)) is not value:
+                entry[key] = value
+        if not self._same_sequence(entry.get("members") or [], draft["members"]):
+            entry["members"] = list(draft["members"])
 
     def _load(self, data) -> None:
         legacy = [name for name in ("groups", "matrix") if name in data]
@@ -1222,36 +1259,49 @@ class PeersEditor(_MultiItemMixin, _SectionEditor):
             draft["timeouts"][key] = str(value)
 
     def _multi_write_entry(self, entry, draft: dict) -> None:
-        entry["proxy"] = draft["proxy"]
+        if str(entry.get("proxy", "")) != draft["proxy"]:
+            entry["proxy"] = draft["proxy"]
         if draft["api_key"]:
-            entry["apiKey"] = draft["api_key"]
-        else:
-            entry.pop("apiKey", None)
-        entry["models"] = list(draft["models"])
+            if str(entry.get("apiKey", "")) != draft["api_key"]:
+                entry["apiKey"] = draft["api_key"]
+        elif "apiKey" in entry:
+            entry.pop("apiKey")
+        if not self._same_sequence(entry.get("models") or [], draft["models"]):
+            entry["models"] = list(draft["models"])
         filters = entry.get("filters")
-        if not isinstance(filters, dict):
-            filters = {}
-            entry["filters"] = filters
-        if draft["strip_params"]:
-            filters["stripParams"] = draft["strip_params"]
-        else:
-            filters.pop("stripParams", None)
+        if not isinstance(filters, (CommentedMap, dict)):
+            filters = None
         set_params = parse_structured_yaml(draft["set_params"])
+        desired_filters: dict = {}
+        if draft["strip_params"]:
+            desired_filters["stripParams"] = draft["strip_params"]
         if set_params:
-            filters["setParams"] = set_params
-        else:
-            filters.pop("setParams", None)
-        if not filters:
-            entry.pop("filters", None)
+            desired_filters["setParams"] = set_params
+        current_filters = {str(key): value for key, value in (filters.items() if filters is not None else [])}
+        if current_filters != desired_filters:
+            if filters is None:
+                filters = CommentedMap()
+                entry["filters"] = filters
+            for key in list(filters):
+                if str(key) not in desired_filters:
+                    filters.pop(key)
+            for key, value in desired_filters.items():
+                filters[key] = value
+            if not filters:
+                entry.pop("filters")
+        desired_timeouts = {key: int(raw) for key, raw in draft["timeouts"].items() if raw is not None}
         timeouts = entry.get("timeouts")
-        if not isinstance(timeouts, dict):
-            timeouts = {}
-            entry["timeouts"] = timeouts
-        for key in self.timeouts:
-            raw = draft["timeouts"].get(key)
-            if raw is None:
-                timeouts.pop(key, None)
-            else:
-                timeouts[key] = int(raw)
-        if not timeouts:
-            entry.pop("timeouts", None)
+        if not isinstance(timeouts, (CommentedMap, dict)):
+            timeouts = None
+        current_timeouts = {str(key): value for key, value in (timeouts.items() if timeouts is not None else [])}
+        if current_timeouts != desired_timeouts:
+            if timeouts is None:
+                timeouts = CommentedMap()
+                entry["timeouts"] = timeouts
+            for key in list(timeouts):
+                if str(key) not in desired_timeouts:
+                    timeouts.pop(key)
+            for key, value in desired_timeouts.items():
+                timeouts[key] = value
+            if not timeouts:
+                entry.pop("timeouts")

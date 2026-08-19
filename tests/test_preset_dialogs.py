@@ -2,6 +2,8 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import pytest
+
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
@@ -126,3 +128,44 @@ def test_device_split_prefills_and_detects_cpu_moe():
     assert dialog.main_gpu.text() == "1"
     assert dialog.gpu_layers.text() == "all"
     assert dialog.all_moe_cpu.isChecked()
+
+
+def test_device_split_all_moe_checked_emits_cpu_moe_only():
+    dialog = DeviceSplitPresetDialog(catalog(), Command())
+    dialog.all_moe_cpu.setChecked(True)
+    dialog.cpu_moe_layers.setText("10")  # must be ignored while all-MoE is checked
+    values = dialog.values()
+    assert values["--cpu-moe"] == []
+    assert "--n-cpu-moe" not in values
+
+
+def test_device_split_partial_count_emits_n_cpu_moe_only():
+    dialog = DeviceSplitPresetDialog(catalog(), Command())
+    dialog.all_moe_cpu.setChecked(False)
+    dialog.cpu_moe_layers.setText("10")
+    values = dialog.values()
+    assert values["--n-cpu-moe"] == ["10"]
+    assert "--cpu-moe" not in values
+
+
+def test_device_split_unconfigured_emits_neither_cpu_moe_option():
+    dialog = DeviceSplitPresetDialog(catalog(), Command())
+    dialog.all_moe_cpu.setChecked(False)
+    dialog.cpu_moe_layers.setText("   ")
+    values = dialog.values()
+    assert "--cpu-moe" not in values
+    assert "--n-cpu-moe" not in values
+
+
+def test_device_split_non_integer_count_rejected():
+    dialog = DeviceSplitPresetDialog(catalog(), Command())
+    dialog.cpu_moe_layers.setText("ten")
+    with pytest.raises(ValueError, match="whole number"):
+        dialog.values()
+
+
+def test_device_split_negative_count_rejected():
+    dialog = DeviceSplitPresetDialog(catalog(), Command())
+    dialog.cpu_moe_layers.setText("-3")
+    with pytest.raises(ValueError, match="negative"):
+        dialog.values()

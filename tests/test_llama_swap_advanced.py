@@ -376,3 +376,299 @@ def test_model_settings_noop_preserves_entry(tmp_path):
     viewer._save_model_settings()
     entry = load_yaml(viewer.service().path)["models"]["llama-model"]
     assert entry == {"ttl": 300, "cmd": "llama-server --port ${PORT} -m model.gguf"}
+
+
+# ---------------------------------------------------------------------------
+# Optional model string fields (useModelName / checkEndpoint)
+# ---------------------------------------------------------------------------
+
+MODEL_FIELDS_TEXT = BASE.replace(
+    "    ttl: 300\n",
+    "    ttl: 300\n    useModelName: some-name\n    checkEndpoint: /health\n",
+    1,
+)
+
+
+def test_model_optional_string_fields_load_and_noop_preserves(tmp_path):
+    viewer = make_viewer(tmp_path, MODEL_FIELDS_TEXT)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    assert viewer.use_model_name.text() == "some-name"
+    assert viewer.check_endpoint.text() == "/health"
+    viewer._save_model_settings()
+    entry = load_yaml(viewer.service().path)["models"]["llama-model"]
+    assert entry["useModelName"] == "some-name"
+    assert entry["checkEndpoint"] == "/health"
+
+
+def test_model_optional_string_fields_edit_and_clear(tmp_path):
+    viewer = make_viewer(tmp_path, MODEL_FIELDS_TEXT)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    viewer.use_model_name.setText("renamed-model")
+    viewer.check_endpoint.setText("/custom/health")
+    viewer._save_model_settings()
+    entry = load_yaml(viewer.service().path)["models"]["llama-model"]
+    assert entry["useModelName"] == "renamed-model"
+    assert entry["checkEndpoint"] == "/custom/health"
+    # Blank removes the key again.
+    viewer.use_model_name.setText("")
+    viewer.check_endpoint.setText("")
+    viewer._save_model_settings()
+    entry = load_yaml(viewer.service().path)["models"]["llama-model"]
+    assert "useModelName" not in entry
+    assert "checkEndpoint" not in entry
+
+
+def test_model_legacy_non_string_optional_field_rejected_not_rewritten(tmp_path):
+    config = tmp_path / "config.yaml"
+    text = BASE.replace("    ttl: 300\n", "    ttl: 300\n    useModelName: 42\n", 1)
+    config.write_text(text, encoding="utf-8")
+    service = LlamaSwapService(config, 3)
+    with pytest.raises(LlamaSwapError, match="useModelName"):
+        service.load()
+    assert config.read_text(encoding="utf-8") == text
+
+
+# ---------------------------------------------------------------------------
+# Multi-item drafts (edit A, switch B, edit B, back to A)
+# ---------------------------------------------------------------------------
+
+PROFILES_TEXT = BASE + """
+profiles:
+  coder:
+    description: coder profile
+    pins:
+      llama-model: llama-model
+  vision:
+    description: vision profile
+    pins:
+      other-model: other-model
+"""
+
+SELECTORS_TEXT = BASE + """
+selectors:
+  fast:
+    strategy: warm
+    targets: [llama-model]
+  slow:
+    strategy: spillover
+    targets: [other-model]
+    settings:
+      spillover: 2
+"""
+
+PEERS_TEXT = BASE + """
+peers:
+  alpha:
+    proxy: http://alpha:5900
+    models: [llama-model]
+  beta:
+    proxy: http://beta:5900
+    models: [other-model]
+"""
+
+ROUTING_GROUPS_TEXT = BASE + """
+routing:
+  router:
+    use: group
+    settings:
+      groups:
+        one:
+          swap: true
+          members: [llama-model]
+        two:
+          exclusive: true
+          members: [other-model]
+"""
+
+
+def test_profiles_drafts_survive_selection_switching(tmp_path):
+    service = make_service(tmp_path, PROFILES_TEXT)
+    editor = ProfilesEditor()
+    editor.load(service.load(), service)
+    editor.list.setCurrentRow(0)
+    editor.description.setText("coder edited")
+    editor.list.setCurrentRow(1)
+    assert editor.description.text() == "vision profile"
+    editor.description.setText("vision edited")
+    editor.list.setCurrentRow(0)
+    assert editor.description.text() == "coder edited"  # A's draft survived the round trip
+    editor.apply(service)
+    data = load_yaml(service.path)
+    assert data["profiles"]["coder"]["description"] == "coder edited"
+    assert data["profiles"]["vision"]["description"] == "vision edited"
+    assert data["unknownFuture"] == {"nested": "keep-me"}
+    assert data["models"]["other-model"]["cmd"].endswith("other.gguf")
+
+
+def test_selectors_drafts_survive_selection_switching(tmp_path):
+    service = make_service(tmp_path, SELECTORS_TEXT)
+    editor = SelectorsEditor()
+    editor.load(service.load(), service)
+    editor.list.setCurrentRow(0)
+    editor.name.setText("fast renamed")
+    editor.list.setCurrentRow(1)
+    editor.name.setText("slow renamed")
+    editor.list.setCurrentRow(0)
+    assert editor.name.text() == "fast renamed"
+    editor.apply(service)
+    data = load_yaml(service.path)
+    assert data["selectors"]["fast"]["name"] == "fast renamed"
+    assert data["selectors"]["slow"]["name"] == "slow renamed"
+    assert data["selectors"]["slow"]["settings"]["spillover"] == 2
+
+
+def test_peers_drafts_survive_selection_switching(tmp_path):
+    service = make_service(tmp_path, PEERS_TEXT)
+    editor = PeersEditor()
+    editor.load(service.load(), service)
+    editor.list.setCurrentRow(0)
+    editor.proxy.setText("http://alpha:6000")
+    editor.list.setCurrentRow(1)
+    editor.proxy.setText("http://beta:6000")
+    editor.list.setCurrentRow(0)
+    assert editor.proxy.text() == "http://alpha:6000"
+    editor.apply(service)
+    data = load_yaml(service.path)
+    assert data["peers"]["alpha"]["proxy"] == "http://alpha:6000"
+    assert data["peers"]["beta"]["proxy"] == "http://beta:6000"
+
+
+def test_routing_group_drafts_survive_selection_switching(tmp_path):
+    service = make_service(tmp_path, ROUTING_GROUPS_TEXT)
+    editor = RoutingEditor()
+    editor.load(service.load(), service)
+    assert editor.router_use.currentData() == "group"
+    editor.groups_list.setCurrentRow(0)
+    editor.group_members.set_values(["other-model"])
+    editor.groups_list.setCurrentRow(1)
+    editor.group_members.set_values(["llama-model"])
+    editor.groups_list.setCurrentRow(0)
+    assert editor.group_members.values() == ["other-model"]
+    editor.apply(service)
+    groups = load_yaml(service.path)["routing"]["router"]["settings"]["groups"]
+    assert groups["one"]["members"] == ["other-model"]
+    assert groups["two"]["members"] == ["llama-model"]
+    assert groups["two"]["exclusive"] is True
+
+
+def test_profiles_delete_removes_only_that_item(tmp_path):
+    service = make_service(tmp_path, PROFILES_TEXT)
+    editor = ProfilesEditor()
+    editor.load(service.load(), service)
+    editor.list.setCurrentRow(0)
+    editor._remove_profile()
+    editor.apply(service)
+    data = load_yaml(service.path)
+    assert list(data["profiles"]) == ["vision"]
+    assert data["profiles"]["vision"] == {"description": "vision profile", "pins": {"other-model": "other-model"}}
+
+
+def test_profiles_add_new_item_leaves_existing_untouched(tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+
+    monkeypatch.setattr(QInputDialog, "getText", lambda parent, title, label: ("my profile", True))
+    service = make_service(tmp_path, PROFILES_TEXT)
+    editor = ProfilesEditor()
+    editor.load(service.load(), service)
+    editor._add_profile()
+    assert [editor.list.item(i).text() for i in range(editor.list.count())] == ["coder", "vision", "my profile"]
+    editor.description.setText("new profile")
+    editor.pins.set_items([("llama-model", "llama-model")])
+    editor.apply(service)
+    data = load_yaml(service.path)
+    assert data["profiles"]["coder"] == {"description": "coder profile", "pins": {"llama-model": "llama-model"}}
+    assert data["profiles"]["vision"] == {"description": "vision profile", "pins": {"other-model": "other-model"}}
+    assert data["profiles"]["my profile"] == {"description": "new profile", "pins": {"llama-model": "llama-model"}}
+
+
+# ---------------------------------------------------------------------------
+# Profile pins: blank target = disabled (null), blank source = invalid
+# ---------------------------------------------------------------------------
+
+
+def test_profile_blank_pin_target_saves_null(tmp_path):
+    service = make_service(tmp_path, PROFILES_TEXT)
+    editor = ProfilesEditor()
+    editor.load(service.load(), service)
+    editor.list.setCurrentRow(1)
+    editor.pins.set_items([("vision", "")])
+    editor.apply(service)
+    pins = load_yaml(service.path)["profiles"]["vision"]["pins"]
+    assert pins["vision"] is None
+
+
+def test_profile_blank_pin_source_rejected(tmp_path):
+    service = make_service(tmp_path, PROFILES_TEXT)
+    editor = ProfilesEditor()
+    editor.load(service.load(), service)
+    editor.list.setCurrentRow(1)
+    editor.pins.set_items([("", "foo")])
+    with pytest.raises(ValueError, match="without a source"):
+        editor.apply(service)
+    assert load_yaml(service.path)["profiles"]["vision"]["pins"] == {"other-model": "other-model"}
+
+
+def test_profile_without_pins_rejected(tmp_path):
+    service = make_service(tmp_path, PROFILES_TEXT)
+    editor = ProfilesEditor()
+    editor.load(service.load(), service)
+    editor.list.setCurrentRow(1)
+    editor.pins.set_items([])
+    with pytest.raises(ValueError, match="at least one pin"):
+        editor.apply(service)
+def test_profile_add_path_rejects_empty_id(tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+    shown: list[str] = []
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda parent, title, text: shown.append(text)))
+    service = make_service(tmp_path, PROFILES_TEXT)
+    editor = ProfilesEditor()
+    editor.load(service.load(), service)
+    monkeypatch.setattr(QInputDialog, "getText", lambda parent, title, label: ("   ", True))
+    editor._add_profile()
+    assert editor.list.count() == 2
+    assert shown and "empty" in shown[0]
+
+def test_profile_id_accepts_any_nonempty_string(tmp_path):
+    service = make_service(tmp_path, PROFILES_TEXT)
+    editor = ProfilesEditor()
+    editor.load(service.load(), service)
+    editor._validate_new_profile_id("fast")
+    editor._validate_new_profile_id("my profile")  # spaces are schema-valid
+    editor._validate_new_profile_id("Weird-Id_9")
+    with pytest.raises(ValueError, match="empty"):
+        editor._validate_new_profile_id("   ")
+    with pytest.raises(ValueError, match="already exists"):
+        editor._validate_new_profile_id("coder")
+
+
+# ---------------------------------------------------------------------------
+# YAML preservation around multi-item saves
+# ---------------------------------------------------------------------------
+
+PROFILES_COMMENT_TEXT = """# llama-swap config
+models:
+  llama-model:
+    cmd: llama-server --port ${PORT} -m model.gguf
+    unknownField: preserved
+profiles:
+  # keep this comment
+  coder:
+    description: coder profile  # trailing comment
+    pins:
+      llama-model: llama-model
+"""
+
+
+def test_profiles_noop_save_preserves_comments_and_unknown_fields(tmp_path):
+    service = make_service(tmp_path, PROFILES_COMMENT_TEXT)
+    editor = ProfilesEditor()
+    editor.load(service.load(), service)
+    editor.apply(service)
+    text = service.path.read_text(encoding="utf-8")
+    assert "# keep this comment" in text
+    assert "description: coder profile  # trailing comment" in text
+    data = load_yaml(service.path)
+    assert data["models"]["llama-model"]["unknownField"] == "preserved"

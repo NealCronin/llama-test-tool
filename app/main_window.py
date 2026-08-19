@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QSplitter, QTabWidget, QVBoxLayout, QWidget,
 )
 from app.models.command import Command
-from app.models.hf_download import TARGET_LABELS
+from app.models.hf_download import HfTarget, TARGET_LABELS
 from app.models.command import CommandArgument
 from app.services.command_parser import parse_command
 from app.services.command_runner import CommandRunner
@@ -32,6 +32,14 @@ from app.widgets.benchmark_options import BenchmarkOptionsDialog
 from app.widgets.benchmark_results import BenchmarkResultsDialog
 from app.widgets.guided_presets import ContextKvPresetDialog, CustomMtpPresetDialog, DeviceSplitPresetDialog
 from app.widgets.model_dialog import ModelDialog
+
+# Download destinations that map to a folder-backed builder row refreshed in place.
+_HF_REFRESH_FLAG = {
+    HfTarget.MODELS.value: "--model",
+    HfTarget.MMProj.value: "--mmproj",
+    HfTarget.DRAFTERS.value: "--spec-draft-model",
+    HfTarget.TEMPLATES.value: "--chat-template-file",
+}
 
 
 class SettingsPage(QWidget):
@@ -184,6 +192,7 @@ class MainWindow(QMainWindow):
         self.builder.benchmark_cancel_requested.connect(self.benchmark_service.cancel)
         self.builder.add_to_swap_requested.connect(self.add_to_swap)
         self.hf_tab.folders_changed.connect(self._on_hf_folders_changed)
+        self.hf_tab.use_requested.connect(self._on_hf_use_requested)
         self.viewer.load_requested.connect(self.load_from_swap)
         self.viewer.status.connect(lambda message: self.statusBar().showMessage(message, 5_000))
         self.runner.output.connect(self.console.append)
@@ -214,17 +223,41 @@ class MainWindow(QMainWindow):
         self.viewer.refresh()
 
     def _on_hf_folders_changed(self, targets: list) -> None:
-        self.settings_saved()
-        names = ", ".join(TARGET_LABELS.get(target, str(target)) for target in targets)
-        self.statusBar().showMessage(f"Download finished — refreshed {names} selectors.", 8_000)
+        names = []
+        for target in targets:
+            flag = _HF_REFRESH_FLAG.get(target)
+            if flag and self.builder.refresh_folder_for(flag):
+                names.append(TARGET_LABELS.get(target, str(target)))
+        if names:
+            self.statusBar().showMessage(f"Download finished — refreshed {', '.join(names)} selectors.", 8_000)
+        else:
+            self.statusBar().showMessage("Download finished.", 8_000)
 
-    def _apply_preset_values(self, values: dict[str, list[str]]) -> None:
-        if "--cpu-moe" in values:
-            self.builder.command.arguments = [argument for argument in self.builder.command.arguments if not (spec := self.catalog.find(argument.flag)) or spec.canonical_name != "--n-cpu-moe"]
-        if "--n-cpu-moe" in values:
-            self.builder.command.arguments = [argument for argument in self.builder.command.arguments if not (spec := self.catalog.find(argument.flag)) or spec.canonical_name != "--cpu-moe"]
+    def _on_hf_use_requested(self, flag: str, path: str) -> None:
+        try:
+            self.builder.set_argument(flag, [path], source_type="manual")
+            self.statusBar().showMessage(f"Set {flag} to {path}", 8_000)
+        except Exception as error:  # noqa: BLE001 - surface any catalog issue in the status bar
+            self.statusBar().showMessage(f"Could not set {flag}: {error}", 8_000)
+
+    def _remove_arguments(self, canonical_name: str) -> None:
+        before = len(self.builder.command.arguments)
+        self.builder.command.arguments = [
+            argument for argument in self.builder.command.arguments
+            if (spec := self.catalog.find(argument.flag)) is None or spec.canonical_name != canonical_name
+        ]
+        if len(self.builder.command.arguments) != before:
+            self.builder.rebuild()
+
+    def _apply_preset_values(self, values: dict[str, list[str]], owned: tuple[str, ...] = ()) -> None:
         for name, argument_values in values.items():
             self.builder.set_argument(name, argument_values)
+        # Owned flags are fully managed by the preset dialog: an owned flag absent from
+        # ``values`` is removed so clearing the dialog cannot leave stale flags behind.
+        # The --cpu-moe/--n-cpu-moe pair is one logical setting with two spellings.
+        for name in owned:
+            if name not in values:
+                self._remove_arguments(name)
 
     def context_kv_preset(self) -> None:
         dialog = ContextKvPresetDialog(self.catalog, self.builder.command, self)
@@ -237,7 +270,10 @@ class MainWindow(QMainWindow):
     def device_split_preset(self) -> None:
         dialog = DeviceSplitPresetDialog(self.catalog, self.builder.command, self)
         if dialog.exec():
-            self._apply_preset_values(dialog.values())
+            try:
+                self._apply_preset_values(dialog.values(), owned=("--cpu-moe", "--n-cpu-moe"))
+            except ValueError as error:
+                QMessageBox.warning(self, "Device Split", str(error))
 
     def custom_mtp_preset(self) -> None:
         dialog = CustomMtpPresetDialog(self.settings, self.catalog, self.builder.command, self)
@@ -449,6 +485,5 @@ class MainWindow(QMainWindow):
             self.memory_service.cancel()
         if self.benchmark_service.running:
             self.benchmark_service.cancel()
-        if self.hf_service.busy:
-            self.hf_service.stop()
+        self.hf_service.shutdown()
         super().closeEvent(event)

@@ -67,6 +67,8 @@ def test_explicit_send_loading_state_saves_true_and_false(tmp_path):
     editor.send_loading.choice.setCurrentIndex(editor.send_loading.choice.findData(False))
     editor.apply(editor._service)
     assert yaml().load(config.read_text(encoding="utf-8"))["sendLoadingState"] is False
+    viewer.refresh()
+    assert viewer.general_editor.send_loading.explicit() is False  # explicit false, not collapsed to absent
 
 
 def test_send_loading_state_absent_remains_absent_on_noop(tmp_path):
@@ -88,7 +90,7 @@ def test_explicit_defaults_are_preserved_on_save(tmp_path):
 def test_reset_to_default_removes_stored_keys(tmp_path):
     config, viewer = make_viewer(tmp_path)
     config.write_text(
-        "logToStdout: both\napiKeys:\n  - secret-1\nmodels:\n  old-model:\n    cmd: llama-server -m old.gguf\n",
+        "logToStdout: both\nlogLevel: debug\napiKeys:\n  - secret-1\nmodels:\n  old-model:\n    cmd: llama-server -m old.gguf\n",
         encoding="utf-8",
     )
     viewer.refresh()
@@ -96,8 +98,29 @@ def test_reset_to_default_removes_stored_keys(tmp_path):
     viewer.security_editor.reset(viewer.security_editor._service)
     data = yaml().load(config.read_text(encoding="utf-8"))
     assert "logToStdout" not in data
+    assert "logLevel" not in data
     assert "apiKeys" not in data
     assert "old-model" in data["models"]
+
+
+def test_absent_log_level_defaults_to_info_without_explicit(tmp_path):
+    config, viewer = make_viewer(tmp_path)
+    editor = viewer.logging_editor
+    assert editor.log_level.effective() == "info"
+    assert editor.log_level.explicit() is None
+    editor.apply(editor._service)
+    assert "logLevel" not in yaml().load(config.read_text(encoding="utf-8"))
+
+
+def test_log_level_stored_equal_to_default_stays_explicit(tmp_path):
+    config, viewer = make_viewer(tmp_path)
+    config.write_text("logLevel: info\nmodels:\n  old-model:\n    cmd: llama-server -m old.gguf\n", encoding="utf-8")
+    viewer.refresh()
+    editor = viewer.logging_editor
+    assert editor.log_level.effective() == "info"
+    assert editor.log_level.explicit() == "info"
+    editor.apply(editor._service)  # no-op save must not collapse the stored default
+    assert yaml().load(config.read_text(encoding="utf-8"))["logLevel"] == "info"
 
 
 def test_failed_validation_leaves_yaml_unchanged(tmp_path):

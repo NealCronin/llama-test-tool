@@ -40,15 +40,18 @@ Models are scanned recursively and sorted naturally. The scanner displays `.gguf
 
 ## Hugging Face downloads
 
-The **Hugging Face** tab is a GUI and process manager around the installed official `hf` CLI — it does not implement a custom downloader.
+The **Hugging Face** tab is a GUI and process manager around the installed official `hf` CLI — it does not implement a custom downloader. Every CLI interaction (version, `auth whoami`, `download --help` capability probing, dry-run previews, downloads) runs asynchronously through `QProcess`; only `PATH` discovery is synchronous, so a slow or misconfigured `hf` can never block the GUI.
 
-1. Enter a **Repo ID** (`owner/repo`) and an optional revision (branch, tag, or commit).
-2. Choose the file selection: exact file names (one per line) or include glob patterns (e.g. `*-Q4_K_M.gguf`, `mmproj-model-f16.gguf`), plus optional exclude globs.
-3. Choose the **Destination folder** — Models, MMProj, Drafters, or Chat templates — resolved from the folders configured in Settings.
-4. The **Command to run** preview shows the exact `hf download …` argv, updated live. An optional token is used for the session only and is never stored.
-5. **Start download** runs the items one at a time through `QProcess` (never a shell) with a live console, a queue table (Repository / Target / State / Result), and **Stop** to terminate the running download and cancel the queue.
+The status row shows the `hf` CLI path, the `huggingface_hub` version, and either **Authenticated as \<user\>** or **Not authenticated**. **Refresh Status** re-probes; **Open Login Terminal** and **Copy Login Command** run or copy `hf auth login` interactively. There is deliberately no token field: authentication uses the `hf` CLI's own stored credentials, an inherited `HF_TOKEN` environment value works as-is, and secrets are redacted from every preview, console line, queue cell, and error detail.
 
-The installed `hf` release has no dry-run or file-listing subcommand, so the tool stays transparent instead of pretending to inspect: the exact command is previewed before anything runs, and after a run the target folder is diffed to report precisely which files were newly created. A glob that matches nothing exits successfully in `hf`, and that case is flagged in the queue result rather than reported as a clean download. After a successful download the matching builder selectors refresh automatically.
+1. Enter a **Repo ID** (`owner/repo`) and choose the **Repository Type** (Model, Dataset, or Space — Model is the default and omits the flag; dataset/space add `--repo-type`).
+2. Add an optional revision (branch, tag, or commit) and choose the file selection: **Entire Repository**, **Exact File Names** (comma-separated), or **Include / Exclude Patterns** (glob lists).
+3. Choose the **Destination** — Models, MMProj, Drafters, or Chat Templates folders from Settings, **HF Cache Only** (with optional custom cache directory), or a **Custom Folder**.
+4. Options: **Force Download** (re-download even if cached) and an optional **max workers** override.
+5. The **Command Preview** shows the exact `hf download …` argv, updated live. **Preview Download (dry-run)** runs the real `hf download … --dry-run` (huggingface_hub 1.0.0+) and reports the file list and transfer size without touching the destination.
+6. **Add to Queue / Start** runs the items one at a time with a live console, a queue table (Repository / Type / Selection / Destination / State / Result), **Cancel Active** to terminate the running download, and **Remove Queued** to drop pending items.
+
+At startup the tab parses `hf download --help` and records which optional flags the installed release actually supports (`--repo-type`, `--revision`, `--include`, `--exclude`, `--cache-dir`, `--local-dir`, `--force-download`, `--dry-run`, `--max-workers`). If a feature is missing, the corresponding control is disabled with a compatibility note instead of passing an unsupported argument. After a run, the target folder is diffed to report precisely which files were newly created; a glob that matches nothing is flagged in the queue result rather than reported as a clean download. After a successful download the matching builder selectors refresh automatically.
 
 ## Building and testing commands
 

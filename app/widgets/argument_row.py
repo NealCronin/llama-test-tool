@@ -197,6 +197,21 @@ class ArgumentRow(QWidget):
         combo.blockSignals(False)
         self._sync_folder_value()
 
+    def refresh_folder(self) -> None:
+        """Re-scan this row's folder combo from current settings (post-download refresh)."""
+        special = self.spec.special_editor
+        if special not in ("model", "mmproj", "template_file", "draft_model"):
+            return
+        folder = {
+            "model": self.settings.models_folder,
+            "mmproj": self.settings.mmproj_folder,
+            "template_file": self.settings.template_folder,
+            "draft_model": self.settings.drafters_folder,
+        }[special]
+        scanner = scan_templates if special == "template_file" else scan_gguf_models
+        placeholder = {"model": "Select model…", "mmproj": "Select MMProj…", "template_file": "Select template…", "draft_model": "Select drafter…"}[special]
+        self._refresh_folder_combo(self.value_widgets[0], folder, scanner, placeholder)
+
     def _sync_template_value(self, combo: QComboBox) -> None:
         selected = combo.currentData()
         if selected == "__default__":
