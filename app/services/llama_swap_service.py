@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable, Sequence
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -19,12 +21,48 @@ class DuplicateModelError(LlamaSwapError):
 
 
 GLOBAL_FIELDS = {
-    "healthCheckTimeout", "globalTTL", "unloadTimeout", "logLevel", "logToStdout", "includeAliasesInList", "startPort",
+    "healthCheckTimeout", "globalTTL", "unloadTimeout", "logLevel", "logTimeFormat", "logToStdout",
+    "includeAliasesInList", "startPort", "sendLoadingState",
 }
 _LOG_LEVELS = {"debug", "info", "warn", "error"}
-
-EDITABLE_SUBTREES = frozenset({"store", "performance", "ui", "macros", "hooks", "upstream", "profiles", "selectors", "routing", "peers", "apiKeys"})
+_LOG_TIME_FORMATS = (
+    "", "ansic", "unixdate", "rubydate", "rfc822", "rfc822z", "rfc850", "rfc1123", "rfc1123z",
+    "rfc3339", "rfc3339nano", "kitchen", "stamp", "stampmilli", "stampmicro", "stampnano",
+)
 _LOG_OUTPUTS = {"proxy", "upstream", "both", "none"}
+EDITABLE_SUBTREES = frozenset({"store", "performance", "ui", "macros", "hooks", "upstream", "profiles", "selectors", "routing", "peers", "apiKeys"})
+
+def update_leaf(data: CommentedMap, path: Sequence[str], value: object | None) -> None:
+    """Set or remove ``value`` at ``path`` inside a loaded configuration.
+
+    Intermediate mappings are created as needed. On removal, mappings that end up
+    empty are trimmed away again so resetting a leaf never leaves empty sections.
+    Unknown fields at every level are untouched.
+    """
+    path = tuple(str(key) for key in path)
+    if not path:
+        raise LlamaSwapError("A non-empty path is required.")
+    if path[0] not in EDITABLE_SUBTREES and path[0] != "models":
+        raise LlamaSwapError(f"{path[0]!r} is not an editable llama-swap configuration section.")
+    node: CommentedMap = data
+    trail: list[tuple[CommentedMap, str]] = []
+    for key in path[:-1]:
+        child = node.get(key)
+        if not isinstance(child, (CommentedMap, dict)):
+            child = CommentedMap()
+            node[key] = child
+        trail.append((node, key))
+        node = child
+    if value is None:
+        node.pop(path[-1], None)
+        for parent, key in reversed(trail):
+            current = parent.get(key)
+            if not isinstance(current, (CommentedMap, dict)) or current:
+                break
+            parent.pop(key, None)
+    else:
+        node[path[-1]] = value
+
 
 class LlamaSwapService:
     """Round-trip, backup-first edits to a llama-swap configuration file."""
@@ -82,7 +120,7 @@ class LlamaSwapService:
         entry["cmd"] = command
         self._validate_model_fields(model_id, entry)
         models[model_id] = entry
-        self._safe_write(data)
+        self._safe_write(data, "models")
 
     def replace_command(self, model_id: str, command: str) -> None:
         data = self.load()
@@ -92,7 +130,7 @@ class LlamaSwapService:
         if not isinstance(models[model_id], CommentedMap):
             raise LlamaSwapError(f"Model {model_id!r} is not a mapping.")
         models[model_id]["cmd"] = command
-        self._safe_write(data)
+        self._safe_write(data, "models")
 
     def duplicate(self, source_id: str, target_id: str) -> None:
         data = self.load()
@@ -103,7 +141,7 @@ class LlamaSwapService:
             raise LlamaSwapError(f"Model ID does not exist: {source_id}")
         from copy import deepcopy
         models[target_id] = deepcopy(models[source_id])
-        self._safe_write(data)
+        self._safe_write(data, "models")
 
     def remove_model(self, model_id: str) -> None:
         data = self.load()
@@ -111,16 +149,23 @@ class LlamaSwapService:
         if model_id not in models:
             raise LlamaSwapError(f"Model ID does not exist: {model_id}")
         del models[model_id]
-        self._safe_write(data)
+        self._safe_write(data, "models")
 
-
-    def update_globals(self, values: dict[str, object]) -> None:
+    def apply_globals(self, values: dict[str, object], remove: Iterable[str] = ()) -> None:
+        """Presence-aware global update: explicit values are written, named keys are removed."""
         data = self.load()
+        for key in remove:
+            if key not in GLOBAL_FIELDS:
+                raise LlamaSwapError(f"{key} is not an application-managed global setting.")
+            data.pop(key, None)
         for key, value in values.items():
             if key not in GLOBAL_FIELDS:
                 raise LlamaSwapError(f"{key} is not an application-managed global setting.")
             data[key] = value
-        self._safe_write(data)
+        self._safe_write(data, "globals")
+
+    def update_globals(self, values: dict[str, object]) -> None:
+        self.apply_globals(values)
 
     def update_subtree(self, name: str, value: object | None) -> None:
         if name not in EDITABLE_SUBTREES:
@@ -130,7 +175,26 @@ class LlamaSwapService:
             data.pop(name, None)
         else:
             data[name] = value
-        self._safe_write(data)
+        self._safe_write(data, name)
+
+    def update_nested(self, path: Sequence[str], value: object | None) -> None:
+        """Set or remove a value at a nested path, preserving unknown fields at every level."""
+        with self.transaction(path[0] if path else None) as data:
+            update_leaf(data, path, value)
+
+    @contextmanager
+    def transaction(self, touched: str | None = None):
+        """Load once, mutate in place, then validate and write exactly once.
+
+        Any exception raised by the caller leaves the file untouched; the full
+        configuration is schema- and semantics-validated before the atomic replace.
+        """
+        data = self.load()
+        try:
+            yield data
+        except BaseException:
+            raise
+        self._safe_write(data, touched)
 
     def update_model_metadata(self, model_id: str, values: dict[str, object]) -> None:
         data = self.load()
@@ -138,19 +202,19 @@ class LlamaSwapService:
         if not isinstance(entry, CommentedMap):
             raise LlamaSwapError(f"Model ID does not exist: {model_id}")
         for key, value in values.items():
-            if value is None and key in {"ttl", "unloadTimeout"}:
+            if value is None:
                 entry.pop(key, None)
             else:
                 entry[key] = value
         self._validate_model_fields(model_id, entry)
-        self._safe_write(data)
+        self._safe_write(data, "models")
 
     def inherit_model_timeouts(self) -> int:
         data = self.load()
         for entry in data["models"].values():
             entry.pop("ttl", None)
             entry.pop("unloadTimeout", None)
-        self._safe_write(data)
+        self._safe_write(data, "models")
         return len(data["models"])
 
     @staticmethod
@@ -169,16 +233,24 @@ class LlamaSwapService:
         for key in ("includeAliasesInList", "sendLoadingState"):
             if key in data and not isinstance(data[key], bool):
                 raise LlamaSwapError(f"{key} must be true or false.")
-        if "logTimeFormat" in data and not isinstance(data["logTimeFormat"], str):
-            raise LlamaSwapError("logTimeFormat must be a string.")
+        if "logTimeFormat" in data and data["logTimeFormat"] not in _LOG_TIME_FORMATS:
+            raise LlamaSwapError(f"logTimeFormat must be one of: {', '.join(repr(value) for value in _LOG_TIME_FORMATS)}.")
+
     @staticmethod
     def _validate_model_fields(model_id: object, entry: CommentedMap) -> None:
         for key in ("ttl", "unloadTimeout"):
             if key in entry and (not isinstance(entry[key], int) or isinstance(entry[key], bool) or entry[key] < (-1 if key == "ttl" else 0)):
                 raise LlamaSwapError(f"Model {model_id!r} {key} has an invalid value.")
+        if "concurrencyLimit" in entry and (not isinstance(entry["concurrencyLimit"], int) or isinstance(entry["concurrencyLimit"], bool) or entry["concurrencyLimit"] < 0):
+            raise LlamaSwapError(f"Model {model_id!r} concurrencyLimit must be a non-negative integer.")
         for key in ("name", "description", "useModelName", "checkEndpoint"):
             if key in entry and not isinstance(entry[key], str):
                 raise LlamaSwapError(f"Model {model_id!r} {key} must be a string.")
+        for key in ("unlisted", "sendLoadingState"):
+            if key in entry and not isinstance(entry[key], bool):
+                raise LlamaSwapError(f"Model {model_id!r} {key} must be true or false.")
+        if "aliases" in entry and (not isinstance(entry["aliases"], list) or any(not isinstance(alias, str) or not alias for alias in entry["aliases"])):
+            raise LlamaSwapError(f"Model {model_id!r} aliases must be a list of non-empty strings.")
         if "capabilities" not in entry:
             return
         capabilities = entry["capabilities"]
@@ -188,15 +260,73 @@ class LlamaSwapService:
         if unknown:
             raise LlamaSwapError(f"Model {model_id!r} capabilities has unknown key(s): {', '.join(sorted(unknown))}.")
         for key in ("in", "out"):
-            if key in capabilities and (not isinstance(capabilities[key], list) or any(value not in {"text", "audio", "image"} for value in capabilities[key])):
-                raise LlamaSwapError(f"Model {model_id!r} capabilities.{key} must contain only text, audio, or image.")
+            if key in capabilities and (not isinstance(capabilities[key], list) or not capabilities[key] or any(value not in {"text", "audio", "image"} for value in capabilities[key])):
+                raise LlamaSwapError(f"Model {model_id!r} capabilities.{key} must be a non-empty list of text, audio, or image.")
         for key in ("tools", "reranker"):
             if key in capabilities and not isinstance(capabilities[key], bool):
                 raise LlamaSwapError(f"Model {model_id!r} capabilities.{key} must be true or false.")
         if "context" in capabilities and (not isinstance(capabilities["context"], int) or isinstance(capabilities["context"], bool) or capabilities["context"] < 0):
             raise LlamaSwapError(f"Model {model_id!r} capabilities.context must be a non-negative integer.")
-    def _safe_write(self, data: CommentedMap) -> None:
+
+    @staticmethod
+    def _validate_semantics(data: CommentedMap, touched: str | None) -> None:
+        """Runtime-semantics checks for the subtrees a write actually touches.
+
+        Pre-existing conflicts elsewhere in the file never block unrelated writes;
+        a failed check raises before any file is modified.
+        """
+        models = data.get("models") or {}
+        if touched in (None, "models"):
+            seen_aliases: dict[str, str] = {}
+            for model_id in models:
+                seen_aliases[str(model_id)] = str(model_id)
+            for model_id, entry in models.items():
+                for alias in entry.get("aliases", []) or []:
+                    owner = seen_aliases.get(str(alias))
+                    if owner is not None:
+                        raise LlamaSwapError(f"Alias {alias!r} is already used by {owner!r}; aliases must be unique across all model IDs and aliases.")
+                    seen_aliases[str(alias)] = str(model_id)
+        if touched in (None, "hooks"):
+            preload = (((data.get("hooks") or {}).get("on_startup") or {}).get("preload") or [])
+            for model_id in preload:
+                if model_id not in models:
+                    raise LlamaSwapError(f"hooks.on_startup.preload references unknown model {model_id!r}.")
+        if touched in (None, "routing"):
+            routing = data.get("routing")
+            if routing is None:
+                return
+            legacy = [name for name in ("groups", "matrix") if name in data]
+            if legacy and "router" in routing:
+                raise LlamaSwapError(
+                    f"Legacy top-level {legacy[0]!r} and routing.router cannot be used together; "
+                    "remove the legacy section or stop configuring routing.router."
+                )
+            scheduler = routing.get("scheduler") or {}
+            priority = ((scheduler.get("settings") or {}).get("fifo") or {}).get("priority") or {}
+            for model_id in priority:
+                if model_id not in models:
+                    raise LlamaSwapError(f"routing.scheduler settings.fifo.priority references unknown model {model_id!r}.")
+            router = routing.get("router") or {}
+            use = router.get("use")
+            settings = router.get("settings") or {}
+            if use == "group" and "matrix" in settings:
+                raise LlamaSwapError("routing.router.use is 'group' but settings also configures a matrix.")
+            if use == "matrix" and "groups" in settings:
+                raise LlamaSwapError("routing.router.use is 'matrix' but settings also configures groups.")
+            groups = settings.get("groups") or {}
+            membership: dict[str, str] = {}
+            for group_name, group in groups.items():
+                for member in (group or {}).get("members", []) or []:
+                    if member not in models:
+                        raise LlamaSwapError(f"Routing group {group_name!r} references unknown model {member!r}.")
+                    owner = membership.get(str(member))
+                    if owner is not None:
+                        raise LlamaSwapError(f"Model {member!r} is a member of both {owner!r} and {group_name!r}; a model can only belong to one group.")
+                    membership[str(member)] = str(group_name)
+
+    def _safe_write(self, data: CommentedMap, touched: str | None = None) -> None:
         # Validate before opening a replacement file; this keeps failed writes
+        self._validate_semantics(data, touched)
         try:
             self.validator.validate(data)
         except LlamaSwapSchemaError as error:

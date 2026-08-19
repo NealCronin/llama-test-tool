@@ -1,5 +1,6 @@
 __pycache__/
 *.py[cod]
-.pytest_cache/
 .venv/
-*.bak-*
+out.txt
+pytest_out.txt
+pytest_adv.txt

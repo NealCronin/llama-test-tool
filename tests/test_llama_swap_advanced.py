@@ -1,0 +1,377 @@
+import os
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from pathlib import Path
+
+import pytest
+from PySide6.QtWidgets import QApplication, QListWidgetItem
+from ruamel.yaml import YAML
+
+from app.settings import AppSettings
+from app.services.llama_swap_service import LlamaSwapError, LlamaSwapService
+from app.widgets.config_viewer import ConfigViewer
+from app.widgets.llama_swap_advanced import (
+    ActivityPerformanceEditor,
+    GeneralSettingsEditor,
+    HooksEditor,
+    LoggingSettingsEditor,
+    MacrosEditor,
+    PeersEditor,
+    ProfilesEditor,
+    RoutingEditor,
+    SecurityEditor,
+    SelectorsEditor,
+    UpstreamEditor,
+)
+
+BASE = """# llama-swap config
+models:
+  llama-model:
+    ttl: 300
+    cmd: llama-server --port ${PORT} -m model.gguf
+  other-model:
+    cmd: llama-server --port ${PORT} -m other.gguf
+logLevel: debug
+apiKeys:
+  - "secret-1"
+store:
+  path: /data/store
+performance:
+  every: 30s
+  disabled: false
+unknownFuture:
+  nested: keep-me
+"""
+
+app = QApplication.instance() or QApplication([])
+
+
+def make_service(tmp_path: Path, text: str = BASE) -> LlamaSwapService:
+    config = tmp_path / "config.yaml"
+    config.write_text(text, encoding="utf-8")
+    return LlamaSwapService(config, 3)
+
+
+def load_yaml(path: Path):
+    instance = YAML(typ="rt")
+    instance.preserve_quotes = True
+    return instance.load(Path(path).read_text(encoding="utf-8"))
+
+
+def set_optional(widget, value, explicit: bool = True) -> None:
+    widget.set_explicit.setChecked(explicit)
+    if explicit:
+        widget.edit.setText(str(value))
+
+
+def edit(editor_class, service, mutate=None):
+    editor = editor_class()
+    editor.load(service.load(), service)
+    if mutate:
+        mutate(editor)
+    editor.apply(service)
+    return editor
+
+
+ALL_EDITORS = (
+    GeneralSettingsEditor,
+    LoggingSettingsEditor,
+    ActivityPerformanceEditor,
+    SecurityEditor,
+    MacrosEditor,
+    HooksEditor,
+    UpstreamEditor,
+    ProfilesEditor,
+    SelectorsEditor,
+    RoutingEditor,
+    PeersEditor,
+)
+
+
+def test_every_editor_noop_is_stable_and_semantically_identical(tmp_path):
+    service = make_service(tmp_path)
+    original = load_yaml(service.path)
+    for editor_class in ALL_EDITORS:
+        service.path.write_text(BASE, encoding="utf-8")
+        editor = editor_class()
+        editor.load(service.load(), service)
+        editor.apply(service)
+        once = service.path.read_text(encoding="utf-8")
+        assert load_yaml(service.path) == original, f"{editor_class.__name__} changed the configuration on a no-op save"
+        # A second no-op save must not touch the file again (idempotent writes).
+        editor = editor_class()
+        editor.load(service.load(), service)
+        editor.apply(service)
+        assert service.path.read_text(encoding="utf-8") == once, f"{editor_class.__name__} is not stable across repeated no-op saves"
+
+
+def test_noop_does_not_create_absent_sections(tmp_path):
+    service = make_service(tmp_path)
+    for editor_class in (ProfilesEditor, SelectorsEditor, PeersEditor, RoutingEditor, MacrosEditor, HooksEditor, UpstreamEditor):
+        service.path.write_text(BASE, encoding="utf-8")
+        edit(editor_class, service)
+    data = load_yaml(service.path)
+    for key in ("profiles", "selectors", "peers", "routing", "macros", "hooks", "upstream", "ui"):
+        assert key not in data, f"no-op save created section {key!r}"
+    assert data["unknownFuture"] == {"nested": "keep-me"}
+
+
+def test_routing_priority_roundtrip(tmp_path):
+    service = make_service(tmp_path)
+    edit(RoutingEditor, service, lambda e: e.priority.set_items([("llama-model", "5"), ("other-model", "3")]))
+    data = load_yaml(service.path)
+    priority = data["routing"]["scheduler"]["settings"]["fifo"]["priority"]
+    assert priority == {"llama-model": 5, "other-model": 3}
+    assert data["models"]["llama-model"]["ttl"] == 300
+    assert data["unknownFuture"] == {"nested": "keep-me"}
+
+def test_routing_priority_unknown_model_rejected(tmp_path):
+    service = make_service(tmp_path)
+    editor = RoutingEditor()
+    editor.load(service.load(), service)
+    editor.priority.set_items([("ghost-model", "5")])
+    with pytest.raises(LlamaSwapError, match="unknown model"):
+        editor.apply(service)
+    assert "routing" not in load_yaml(service.path)
+
+
+def test_routing_group_unknown_member_rejected(tmp_path):
+    service = make_service(tmp_path)
+    editor = RoutingEditor()
+    editor.load(service.load(), service)
+    editor.router_use.setCurrentIndex(editor.router_use.findData("group"))
+    editor.groups_list.addItem(QListWidgetItem("one"))
+    editor.groups_list.setCurrentItem(editor.groups_list.item(0))
+    editor.group_members.set_values(["ghost-model"])
+    with pytest.raises(LlamaSwapError, match="unknown model"):
+        editor.apply(service)
+    assert "routing" not in load_yaml(service.path)
+
+
+def test_routing_legacy_and_router_conflict_rejected(tmp_path):
+    text = BASE + "groups:\n  - group: one\n    members: [llama-model]\n"
+    service = make_service(tmp_path, text)
+    editor = RoutingEditor()
+    editor.load(service.load(), service)
+    editor.router_use.setCurrentIndex(editor.router_use.findData("group"))
+    editor.groups_list.addItem(QListWidgetItem("one"))
+    editor.groups_list.setCurrentItem(editor.groups_list.item(0))
+    with pytest.raises(LlamaSwapError, match="Legacy"):
+        editor.apply(service)
+    assert service.path.read_text(encoding="utf-8") == text
+
+
+def test_routing_group_roundtrip_preserves_other_groups(tmp_path):
+    text = BASE + "routing:\n  router:\n    use: group\n    settings:\n      groups:\n        one:\n          swap: true\n          members: [llama-model]\n        two:\n          exclusive: true\n          members: [other-model]\n          persistent: true\n"
+    service = make_service(tmp_path, text)
+    editor = RoutingEditor()
+    editor.load(service.load(), service)
+    editor.groups_list.setCurrentRow(0)
+    editor.group_persistent.choice.setCurrentIndex(editor.group_persistent.choice.findData(True))
+    editor.apply(service)
+    groups = load_yaml(service.path)["routing"]["router"]["settings"]["groups"]
+    assert groups["one"]["persistent"] is True
+    assert groups["one"]["members"] == ["llama-model"]
+    assert groups["two"]["exclusive"] is True
+    assert groups["two"]["members"] == ["other-model"]
+    assert groups["two"]["persistent"] is True
+
+
+def test_routing_reset_removes_section(tmp_path):
+    text = BASE + "routing:\n  scheduler:\n    use: fifo\n    settings:\n      fifo:\n        priority:\n          llama-model: 2\n"
+    service = make_service(tmp_path, text)
+    editor = RoutingEditor()
+    editor.load(service.load(), service)
+    editor.reset(service)
+    assert "routing" not in load_yaml(service.path)
+
+
+def test_activity_store_path_save_and_reset(tmp_path):
+    service = make_service(tmp_path)
+    edit(ActivityPerformanceEditor, service, lambda e: set_optional(e.store_path, "/new/store"))
+    assert load_yaml(service.path)["store"]["path"] == "/new/store"
+    edit(ActivityPerformanceEditor, service, lambda e: set_optional(e.store_path, "", explicit=False))
+    assert "store" not in load_yaml(service.path)
+    assert load_yaml(service.path)["performance"] == {"every": "30s", "disabled": False}
+
+
+def test_ui_session_headers_presence(tmp_path):
+    service = make_service(tmp_path)
+    edit(ActivityPerformanceEditor, service, lambda e: (
+        e.ui_configured.setChecked(True),
+        e.session_id.set_values(["X-Custom-Session"]),
+    ))
+    assert load_yaml(service.path)["ui"]["activity"]["session_id"] == ["X-Custom-Session"]
+    edit(ActivityPerformanceEditor, service, lambda e: e.ui_configured.setChecked(False))
+    assert "ui" not in load_yaml(service.path)
+
+
+def test_apikeys_roundtrip_and_reset(tmp_path):
+    service = make_service(tmp_path)
+    edit(SecurityEditor, service, lambda e: e.keys.set_values(["${env.KEY_A}", "literal-2"]))
+    assert load_yaml(service.path)["apiKeys"] == ["${env.KEY_A}", "literal-2"]
+    edit(SecurityEditor, service, lambda e: e.keys.set_values([]))
+    assert "apiKeys" not in load_yaml(service.path)
+
+
+def test_macros_and_hooks_roundtrip(tmp_path):
+    service = make_service(tmp_path)
+    edit(MacrosEditor, service, lambda e: e._add_row("model", "model.gguf", "string"))
+    edit(HooksEditor, service, lambda e: e.preload.set_values(["llama-model"]))
+    data = load_yaml(service.path)
+    assert data["macros"]["model"] == "model.gguf"
+    assert data["hooks"]["on_startup"]["preload"] == ["llama-model"]
+    edit(MacrosEditor, service, lambda e: e.rows.clear())
+    edit(HooksEditor, service, lambda e: e.preload.set_values([]))
+    data = load_yaml(service.path)
+    assert "macros" not in data
+    assert "hooks" not in data
+
+
+def test_hooks_preload_unknown_model_rejected(tmp_path):
+    service = make_service(tmp_path)
+    editor = HooksEditor()
+    editor.load(service.load(), service)
+    editor.preload.set_values(["ghost-model"])
+    with pytest.raises(LlamaSwapError, match="unknown model"):
+        editor.apply(service)
+    assert "hooks" not in load_yaml(service.path)
+
+
+def test_upstream_roundtrip(tmp_path):
+    service = make_service(tmp_path)
+    edit(UpstreamEditor, service, lambda e: e.ignore_paths.set_values([r"^/v1/completions$"]))
+    assert load_yaml(service.path)["upstream"]["ignorePaths"] == [r"^/v1/completions$"]
+    edit(UpstreamEditor, service, lambda e: e.ignore_paths.set_values([]))
+    assert "upstream" not in load_yaml(service.path)
+
+
+def test_profiles_roundtrip(tmp_path):
+    service = make_service(tmp_path)
+    editor = ProfilesEditor()
+    editor.load(service.load(), service)
+    editor.list.addItem("fast")
+    editor.list.setCurrentRow(0)
+    editor.description.setText("Quick model")
+    editor.pins.set_items([("llama-model", "other-model")])
+    editor.apply(service)
+    profile = load_yaml(service.path)["profiles"]["fast"]
+    assert profile["description"] == "Quick model"
+    assert profile["pins"] == {"llama-model": "other-model"}
+    assert "other-model" in load_yaml(service.path)["models"]
+
+
+def test_selectors_spillover_roundtrip(tmp_path):
+    service = make_service(tmp_path)
+    editor = SelectorsEditor()
+    editor.load(service.load(), service)
+    editor.list.addItem("vision")
+    editor.list.setCurrentRow(0)
+    editor.name.setText("Vision models")
+    editor.targets.set_values(["llama-model"])
+    editor.strategy.setCurrentText("spillover")
+    set_optional(editor.spillover, 3)
+    editor.apply(service)
+    entry = load_yaml(service.path)["selectors"]["vision"]
+    assert entry["name"] == "Vision models"
+    assert entry["targets"] == ["llama-model"]
+    assert entry["strategy"] == "spillover"
+    assert entry["settings"]["spillover"] == 3
+    assert "other-model" in load_yaml(service.path)["models"]
+
+
+def test_peers_roundtrip(tmp_path):
+    service = make_service(tmp_path)
+    editor = PeersEditor()
+    editor.load(service.load(), service)
+    editor.list.addItem("remote-a")
+    editor.list.setCurrentRow(0)
+    editor.proxy.setText("http://peer-a:5800")
+    editor.models.set_values(["llama-model"])
+    editor.api_key.setText("${env.PEER_KEY}")
+    set_optional(editor.timeouts["connect"], 60)
+    editor.apply(service)
+    peer = load_yaml(service.path)["peers"]["remote-a"]
+    assert peer["proxy"] == "http://peer-a:5800"
+    assert peer["models"] == ["llama-model"]
+    assert peer["apiKey"] == "${env.PEER_KEY}"
+    assert peer["timeouts"]["connect"] == 60
+    assert load_yaml(service.path)["models"]["other-model"]["cmd"].endswith("other.gguf")
+
+
+def test_general_fields_save_and_reset(tmp_path):
+    service = make_service(tmp_path)
+    edit(GeneralSettingsEditor, service, lambda e: (
+        set_optional(e.health_check, 60),
+        e.send_loading.choice.setCurrentIndex(e.send_loading.choice.findData(True)),
+    ))
+    data = load_yaml(service.path)
+    assert data["healthCheckTimeout"] == 60
+    assert data["sendLoadingState"] is True
+    assert "logLevel" in data
+    edit(GeneralSettingsEditor, service, lambda e: (
+        set_optional(e.health_check, "", explicit=False),
+        e.send_loading.choice.setCurrentIndex(0),
+    ))
+    data = load_yaml(service.path)
+    assert "healthCheckTimeout" not in data
+    assert "sendLoadingState" not in data
+
+
+def make_viewer(tmp_path: Path, text: str = BASE) -> ConfigViewer:
+    config = tmp_path / "config.yaml"
+    config.write_text(text, encoding="utf-8")
+    return ConfigViewer(AppSettings(llama_swap_config=str(config)))
+
+
+def test_model_inherit_ttl_removes_key(tmp_path):
+    viewer = make_viewer(tmp_path)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    assert viewer.ttl_mode.currentData() == "custom"
+    viewer.ttl_mode.setCurrentIndex(1)
+    viewer._save_model_settings()
+    entry = load_yaml(viewer.service().path)["models"]["llama-model"]
+    assert "ttl" not in entry
+    assert entry["cmd"].endswith("model.gguf")
+
+
+def test_model_custom_ttl_and_unload_saved(tmp_path):
+    viewer = make_viewer(tmp_path)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    viewer.ttl_mode.setCurrentIndex(2)
+    viewer.ttl.setText("600")
+    viewer.unload_mode.setCurrentIndex(2)
+    viewer.unload.setText("30")
+    viewer._save_model_settings()
+    entry = load_yaml(viewer.service().path)["models"]["llama-model"]
+    assert entry["ttl"] == 600
+    assert entry["unloadTimeout"] == 30
+
+
+def test_model_capabilities_expanded(tmp_path):
+    viewer = make_viewer(tmp_path)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    viewer.caps_configured.setChecked(True)
+    viewer.caps_in["text"].setChecked(True)
+    viewer.caps_out["text"].setChecked(True)
+    viewer.caps_out["audio"].setChecked(True)
+    viewer.caps_context.set_explicit.setChecked(True)
+    viewer.caps_context.edit.setText("8192")
+    viewer._save_model_settings()
+    capabilities = load_yaml(viewer.service().path)["models"]["llama-model"]["capabilities"]
+    assert capabilities["in"] == ["text"]
+    assert capabilities["out"] == ["text", "audio"]
+    assert capabilities["context"] == 8192
+
+
+def test_model_settings_noop_preserves_entry(tmp_path):
+    viewer = make_viewer(tmp_path)
+    viewer.list.setCurrentRow(0)
+    viewer._select(viewer.list.item(0))
+    viewer._save_model_settings()
+    entry = load_yaml(viewer.service().path)["models"]["llama-model"]
+    assert entry == {"ttl": 300, "cmd": "llama-server --port ${PORT} -m model.gguf"}

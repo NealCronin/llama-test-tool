@@ -5,11 +5,11 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
-    QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QTabWidget, QVBoxLayout,
-    QWidget,
+    QComboBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
+    QTabWidget, QVBoxLayout, QWidget,
 )
-
+from app.models.command import Command
+from app.models.hf_download import TARGET_LABELS
 from app.models.command import CommandArgument
 from app.services.command_parser import parse_command
 from app.services.command_runner import CommandRunner
@@ -18,17 +18,20 @@ from app.services.llama_swap_service import DuplicateModelError, LlamaSwapError,
 from app.services.validation import validate_command
 from app.services.llama_cpp_installation import LlamaCppInstallationService
 from app.server import SERVER_COMMAND, server_executable_path
+from app.services.hf_cli_service import HfCliService
 from app.services.memory_test_service import MemoryTestService
 from app.services.benchmark_service import BenchmarkService
 from app.settings import AppSettings
 from app.widgets.command_builder import CommandBuilder
 from app.widgets.config_viewer import ConfigViewer
+from app.widgets.hf_download_tab import HfDownloadTab
 from app.widgets.output_console import OutputConsole
 from app.widgets.memory_options import MemoryTestOptionsDialog
 from app.widgets.memory_results import MemoryResultsDialog
 from app.widgets.benchmark_options import BenchmarkOptionsDialog
 from app.widgets.benchmark_results import BenchmarkResultsDialog
 from app.widgets.guided_presets import ContextKvPresetDialog, CustomMtpPresetDialog, DeviceSplitPresetDialog
+from app.widgets.model_dialog import ModelDialog
 
 
 class SettingsPage(QWidget):
@@ -135,61 +138,6 @@ class SettingsPage(QWidget):
         self.window().statusBar().showMessage("Settings saved.", 5_000)
         if isinstance(self.window(), MainWindow):
             self.window().settings_saved()
-class ModelDialog(QDialog):
-    def __init__(self, suggested_id: str, context_size: str = "", has_mmproj: bool = False, parent=None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Add to llama-swap")
-        form = QFormLayout(self)
-        self.model_id = QLineEdit(suggested_id)
-        self.display_name = QLineEdit()
-        self.description = QLineEdit()
-        self.use_model_name = QLineEdit()
-        self.check_endpoint = QLineEdit("/health")
-        self.inherit_ttl = QCheckBox("Inherit global TTL"); self.inherit_ttl.setChecked(True)
-        self.ttl = QLineEdit(); self.ttl.setEnabled(False)
-        self.inherit_unload = QCheckBox("Inherit global unload timeout"); self.inherit_unload.setChecked(True)
-        self.unload = QLineEdit(); self.unload.setEnabled(False)
-        self.input_text = QCheckBox("Input text"); self.input_text.setChecked(True)
-        self.input_image = QCheckBox("Input image"); self.input_image.setChecked(has_mmproj)
-        self.input_audio = QCheckBox("Input audio")
-        self.output_text = QCheckBox("Output text"); self.output_text.setChecked(True)
-        self.output_image = QCheckBox("Output image")
-        self.output_audio = QCheckBox("Output audio")
-        self.tools = QCheckBox("Tools")
-        self.reranker = QCheckBox("Reranker")
-        self.context = QLineEdit(context_size)
-        self.inherit_ttl.toggled.connect(lambda checked: self.ttl.setEnabled(not checked))
-        self.inherit_unload.toggled.connect(lambda checked: self.unload.setEnabled(not checked))
-        for label, widget in (("Model ID", self.model_id), ("Display name", self.display_name), ("Description", self.description), ("useModelName", self.use_model_name), ("checkEndpoint", self.check_endpoint), ("TTL override", self.ttl), ("Unload timeout override", self.unload), ("Context capability", self.context)):
-            form.addRow(label, widget)
-        form.addRow(self.inherit_ttl); form.addRow(self.inherit_unload)
-        for widget in (self.input_text, self.input_image, self.input_audio, self.output_text, self.output_image, self.output_audio, self.tools, self.reranker):
-            form.addRow(widget)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save)
-        buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject)
-        form.addRow(buttons)
-
-    def metadata(self) -> dict[str, object]:
-        try:
-            ttl = None if self.inherit_ttl.isChecked() else int(self.ttl.text())
-            unload = None if self.inherit_unload.isChecked() else int(self.unload.text())
-            context = int(self.context.text()) if self.context.text().strip() else None
-        except ValueError as error:
-            raise ValueError("TTL, unload timeout, and context capability must be whole numbers.") from error
-        if context is not None and context < 0:
-            raise ValueError("Context capability cannot be negative.")
-        inputs = [name for name, checked in (("text", self.input_text.isChecked()), ("image", self.input_image.isChecked()), ("audio", self.input_audio.isChecked())) if checked]
-        outputs = [name for name, checked in (("text", self.output_text.isChecked()), ("image", self.output_image.isChecked()), ("audio", self.output_audio.isChecked())) if checked]
-        capabilities: dict[str, object] = {"in": inputs, "out": outputs, "tools": self.tools.isChecked(), "reranker": self.reranker.isChecked()}
-        if context is not None:
-            capabilities["context"] = context
-        metadata: dict[str, object] = {"capabilities": capabilities}
-        if self.description.text().strip(): metadata["description"] = self.description.text().strip()
-        if self.use_model_name.text().strip(): metadata["useModelName"] = self.use_model_name.text().strip()
-        if self.check_endpoint.text().strip(): metadata["checkEndpoint"] = self.check_endpoint.text().strip()
-        if ttl is not None: metadata["ttl"] = ttl
-        if unload is not None: metadata["unloadTimeout"] = unload
-        return metadata
 
 
 class MainWindow(QMainWindow):
@@ -207,9 +155,11 @@ class MainWindow(QMainWindow):
         builder_page = QWidget()
         builder_layout = QVBoxLayout(builder_page)
         builder_layout.addWidget(self.builder, 3)
-        builder_layout.addWidget(self.console, 2)
+        self.hf_service = HfCliService(self)
+        self.hf_tab = HfDownloadTab(settings, self.hf_service)
         self.viewer = ConfigViewer(settings)
         self.settings_page = SettingsPage(settings)
+        self.tabs.addTab(self.hf_tab, "Hugging Face")
         self.tabs.addTab(builder_page, "Command Builder")
         self.tabs.addTab(self.viewer, "llama-swap Config")
         self.tabs.addTab(self.settings_page, "Settings")
@@ -227,6 +177,7 @@ class MainWindow(QMainWindow):
         self.builder.benchmark_options_requested.connect(self.benchmark_options)
         self.builder.benchmark_cancel_requested.connect(self.benchmark_service.cancel)
         self.builder.add_to_swap_requested.connect(self.add_to_swap)
+        self.hf_tab.folders_changed.connect(self._on_hf_folders_changed)
         self.viewer.load_requested.connect(self.load_from_swap)
         self.viewer.status.connect(lambda message: self.statusBar().showMessage(message, 5_000))
         self.runner.output.connect(self.console.append)
@@ -252,16 +203,14 @@ class MainWindow(QMainWindow):
             action.triggered.connect(handler)
             presets.addAction(action)
 
-    def _current_argument_values(self) -> dict[str, str]:
-        values: dict[str, str] = {}
-        for argument in self.builder.command.arguments:
-            if spec := self.catalog.find(argument.flag):
-                values[spec.canonical_name] = argument.values[0] if argument.values else ""
-        return values
-
     def settings_saved(self) -> None:
         self.builder.rebuild()
         self.viewer.refresh()
+
+    def _on_hf_folders_changed(self, targets: list) -> None:
+        self.settings_saved()
+        names = ", ".join(TARGET_LABELS.get(target, str(target)) for target in targets)
+        self.statusBar().showMessage(f"Download finished — refreshed {names} selectors.", 8_000)
 
     def _apply_preset_values(self, values: dict[str, list[str]]) -> None:
         if "--cpu-moe" in values:
@@ -272,7 +221,7 @@ class MainWindow(QMainWindow):
             self.builder.set_argument(name, argument_values)
 
     def context_kv_preset(self) -> None:
-        dialog = ContextKvPresetDialog(self.catalog, self._current_argument_values(), self)
+        dialog = ContextKvPresetDialog(self.catalog, self.builder.command, self)
         if dialog.exec():
             try:
                 self._apply_preset_values(dialog.values())
@@ -280,12 +229,12 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Context + KV Cache", str(error))
 
     def device_split_preset(self) -> None:
-        dialog = DeviceSplitPresetDialog(self._current_argument_values(), self)
+        dialog = DeviceSplitPresetDialog(self.catalog, self.builder.command, self)
         if dialog.exec():
             self._apply_preset_values(dialog.values())
 
     def custom_mtp_preset(self) -> None:
-        dialog = CustomMtpPresetDialog(self.settings, self.catalog, self._current_argument_values(), self)
+        dialog = CustomMtpPresetDialog(self.settings, self.catalog, self.builder.command, self)
         if dialog.exec():
             try:
                 self._apply_preset_values(dialog.values())
@@ -494,4 +443,6 @@ class MainWindow(QMainWindow):
             self.memory_service.cancel()
         if self.benchmark_service.running:
             self.benchmark_service.cancel()
+        if self.hf_service.busy:
+            self.hf_service.stop()
         super().closeEvent(event)
