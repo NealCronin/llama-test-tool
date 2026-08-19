@@ -24,6 +24,17 @@ from app.widgets.llama_swap_advanced import (
 )
 
 
+def _model_field_text(value) -> str:
+    """Render a model string field for the text editor; legacy non-string values are shown, not coerced silently."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
 class ConfigViewer(QWidget):
     load_requested = Signal(str)
     status = Signal(str)
@@ -98,8 +109,10 @@ class ConfigViewer(QWidget):
         settings_form.addRow("Display name", self.name)
         settings_form.addRow("Description", self.description)
         settings_form.addRow("Aliases", self.aliases)
-        self.use_model_name = QCheckBox("Use model name in API", settings_group)
-        self.check_endpoint = QCheckBox("Check endpoint before use", settings_group)
+        self.use_model_name = QLineEdit(settings_group)
+        self.use_model_name.setPlaceholderText("Optional: model name sent upstream (blank = omit)")
+        self.check_endpoint = QLineEdit(settings_group)
+        self.check_endpoint.setPlaceholderText("Optional endpoint path, e.g. /health (blank = omit)")
         self.unlisted = QCheckBox("Unlisted (hidden from default model list)", settings_group)
         settings_form.addRow(self.use_model_name)
         settings_form.addRow(self.check_endpoint)
@@ -251,8 +264,8 @@ class ConfigViewer(QWidget):
         self.name.setText(str(entry.get("name", "")))
         self.description.setText(str(entry.get("description", "")))
         self.aliases.set_values(entry.get("aliases") or [])
-        self.use_model_name.setChecked(bool(entry.get("useModelName", False)))
-        self.check_endpoint.setChecked(bool(entry.get("checkEndpoint", False)))
+        self.use_model_name.setText(_model_field_text(entry.get("useModelName")))
+        self.check_endpoint.setText(_model_field_text(entry.get("checkEndpoint")))
         self.unlisted.setChecked(bool(entry.get("unlisted", False)))
         ttl = entry.get("ttl")
         if ttl == -1:
@@ -297,6 +310,8 @@ class ConfigViewer(QWidget):
         self.unload_mode.setEnabled(enabled)
         self.name.setEnabled(enabled)
         self.description.setEnabled(enabled)
+        self.use_model_name.setEnabled(enabled)
+        self.check_endpoint.setEnabled(enabled)
 
     def _filter(self, text: str) -> None:
         text = text.lower()
@@ -391,8 +406,8 @@ class ConfigViewer(QWidget):
             description = self.description.text().strip()
             values["description"] = description or None
             values["aliases"] = self.aliases.values() or None
-            values["useModelName"] = True if self.use_model_name.isChecked() else None
-            values["checkEndpoint"] = True if self.check_endpoint.isChecked() else None
+            values["useModelName"] = self.use_model_name.text().strip() or None
+            values["checkEndpoint"] = self.check_endpoint.text().strip() or None
             values["unlisted"] = True if self.unlisted.isChecked() else None
             concurrency = self.concurrency_limit.explicit()
             values["concurrencyLimit"] = concurrency

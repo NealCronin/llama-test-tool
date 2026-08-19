@@ -157,6 +157,7 @@ def test_routing_legacy_and_router_conflict_rejected(tmp_path):
     editor.router_use.setCurrentIndex(editor.router_use.findData("group"))
     editor.groups_list.addItem(QListWidgetItem("one"))
     editor.groups_list.setCurrentItem(editor.groups_list.item(0))
+    editor.group_members.set_values(["llama-model"])
     with pytest.raises(LlamaSwapError, match="Legacy"):
         editor.apply(service)
     assert service.path.read_text(encoding="utf-8") == text

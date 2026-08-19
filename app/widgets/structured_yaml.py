@@ -11,6 +11,26 @@ yaml = YAML(typ="rt")
 yaml.preserve_quotes = True
 
 
+def structured_yaml_text(value) -> str:
+    """Serialize a structured value to the editor's YAML text; ``None``/empty means not configured."""
+    if value is None or value == {}:
+        return ""
+    stream = io.StringIO()
+    yaml.dump(value, stream)
+    return stream.getvalue().strip()
+
+
+def parse_structured_yaml(text: str | None):
+    """Parse free-form structured YAML/JSON; blank means not configured (``None``)."""
+    text = (text or "").strip()
+    if not text:
+        return None
+    try:
+        return yaml.load(text)
+    except Exception as error:
+        raise ValueError(f"Structured YAML is not valid: {error}") from error
+
+
 class StructuredYamlEditor(QWidget):
     """Editable YAML (JSON also parses); blank means 'not configured'."""
 
@@ -29,24 +49,19 @@ class StructuredYamlEditor(QWidget):
         self.edit.textChanged.connect(self._revalidate)
 
     def set_object(self, value) -> None:
+        self.set_text(structured_yaml_text(value))
+
+    def set_text(self, text: str) -> None:
         self.edit.blockSignals(True)
-        if value is None or value == {}:
-            self.edit.clear()
-        else:
-            stream = io.StringIO()
-            yaml.dump(value, stream)
-            self.edit.setPlainText(stream.getvalue().strip() + "\n")
+        self.edit.setPlainText((text or "").strip() + ("\n" if text and text.strip() else ""))
         self.edit.blockSignals(False)
         self._revalidate()
 
+    def raw(self) -> str:
+        return self.edit.toPlainText().strip()
+
     def object(self):
-        text = self.edit.toPlainText().strip()
-        if not text:
-            return None
-        try:
-            return yaml.load(text)
-        except Exception as error:
-            raise ValueError(f"Structured YAML is not valid: {error}") from error
+        return parse_structured_yaml(self.edit.toPlainText())
 
     def _revalidate(self) -> None:
         try:

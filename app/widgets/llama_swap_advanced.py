@@ -28,11 +28,11 @@ from PySide6.QtWidgets import (
 from app.services.llama_swap_service import LlamaSwapError, LlamaSwapService, _LOG_TIME_FORMATS, update_leaf
 from app.widgets.ordered_list_editor import KeyValueTableEditor, OrderedSecretListEditor, OrderedStringListEditor
 from app.widgets.optional_setting import OptionalBool, OptionalChoice, OptionalInt, OptionalSettingWidget
-from app.widgets.structured_yaml import StructuredYamlEditor
+from app.widgets.structured_yaml import StructuredYamlEditor, parse_structured_yaml, structured_yaml_text
 
 _MACRO_NAME = re.compile(r"^[A-Za-z0-9_-]+$")
 _RESERVED_MACRO_NAMES = {"PID", "PORT", "MODEL_ID"}
-_PROFILE_ID = re.compile(r"^[A-Z0-9_-]+$")
+_PROFILE_ID = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 def _presence_hint() -> QLabel:
@@ -105,6 +105,7 @@ class _SectionEditor(QWidget):
             QMessageBox.critical(self, "llama-swap", str(error))
             return
         self.saved.emit(f"Removed {self._section or 'settings'} keys; backup created.")
+
     def _apply(self, data) -> None:  # pragma: no cover - overridden
         pass
 
@@ -118,6 +119,124 @@ class _SectionEditor(QWidget):
     def _model_ids(data) -> list[str]:
         models = data.get("models") or {}
         return list(models)
+
+
+class _MultiItemMixin:
+    """Per-item draft model for list-based editors (profiles, selectors, routing groups, peers).
+
+    An item's details are captured in ``self._drafts`` the first time the item is displayed and
+    again whenever the selection moves away, so switching selection never destroys unsaved edits
+    (Option B). Save writes every draft; entries the user never opened keep their on-disk data
+    untouched. Drafts hold raw widget state so switching selection can never fail on half-typed
+    values; validation runs when the draft is written.
+    """
+
+    _list: QListWidget
+
+    def _multi_init(self) -> None:
+        self._drafts: dict[str, dict] = {}
+        self._displayed: str | None = None
+        self._list.currentRowChanged.connect(self._multi_on_selection)
+
+    def _multi_reset(self) -> None:
+        self._drafts = {}
+        self._displayed = None
+
+    def _multi_ids(self) -> list[str]:
+        return [self._list.item(index).text() for index in range(self._list.count())]
+
+    def _multi_on_selection(self, row: int) -> None:
+        if self._displayed is not None:
+            self._drafts[self._displayed] = self._draft_from_widgets()
+        if row < 0:
+            self._displayed = None
+            self._multi_clear_widgets()
+            return
+        item_id = self._list.item(row).text()
+        draft = self._drafts.get(item_id)
+        if draft is None:
+            draft = self._draft_from_disk(self._multi_disk_entry(item_id))
+            self._drafts[item_id] = draft
+        self._draft_to_widgets(draft)
+        self._displayed = item_id
+
+    def _multi_stash(self) -> None:
+        if self._displayed is not None:
+            self._drafts[self._displayed] = self._draft_from_widgets()
+
+    def _multi_drop(self, item_id: str) -> None:
+        self._drafts.pop(item_id, None)
+        if self._displayed == item_id:
+            self._displayed = None
+
+    def _multi_apply_map(self, data, section: str, path: tuple[str, ...] = ()) -> None:
+        """Build the map at ``data[*path][section]`` in list order from the drafts.
+
+        Entries no longer present in the list are removed; items that were never displayed are
+        kept exactly as they appear on disk. Subclasses validate and fill each entry.
+        """
+        from ruamel.yaml.comments import CommentedMap
+
+        def find_parent(parent):
+            for key in path:
+                node = parent.get(key)
+                if not isinstance(node, (CommentedMap, dict)):
+                    return None
+                parent = node
+            return parent
+
+        if not self._list.count():
+            parent = find_parent(data)
+            if parent is not None:
+                parent.pop(section, None)
+            return
+        parent = data
+        for key in path:
+            node = parent.get(key)
+            if not isinstance(node, (CommentedMap, dict)):
+                node = CommentedMap()
+                parent[key] = node
+            parent = node
+        section_map = parent.get(section)
+        if not isinstance(section_map, (CommentedMap, dict)):
+            section_map = CommentedMap()
+            parent[section] = section_map
+        for key in list(section_map):
+            if str(key) not in self._multi_ids():
+                section_map.pop(key)
+        for item_id in self._multi_ids():
+            entry = section_map.get(item_id)
+            if not isinstance(entry, (CommentedMap, dict)):
+                entry = CommentedMap()
+                section_map[item_id] = entry
+            draft = self._drafts.get(item_id)
+            if draft is None:
+                continue
+            self._multi_validate_draft(item_id, draft)
+            self._multi_write_entry(entry, draft)
+
+    # Per-editor hooks
+    def _multi_disk_entry(self, item_id: str) -> dict:  # pragma: no cover - overridden
+        data = self._service.load()
+        return (data.get(self._section) or {}).get(item_id) or {}
+
+    def _draft_from_disk(self, entry: dict) -> dict:  # pragma: no cover - overridden
+        raise NotImplementedError
+
+    def _draft_to_widgets(self, draft: dict) -> None:  # pragma: no cover - overridden
+        raise NotImplementedError
+
+    def _draft_from_widgets(self) -> dict:  # pragma: no cover - overridden
+        raise NotImplementedError
+
+    def _multi_clear_widgets(self) -> None:  # pragma: no cover - overridden
+        raise NotImplementedError
+
+    def _multi_validate_draft(self, item_id: str, draft: dict) -> None:  # pragma: no cover - overridden
+        pass
+
+    def _multi_write_entry(self, entry, draft: dict) -> None:  # pragma: no cover - overridden
+        raise NotImplementedError
 
 
 class GeneralSettingsEditor(_SectionEditor):
@@ -454,10 +573,10 @@ class UpstreamEditor(_SectionEditor):
         update_leaf(data, ("upstream", "ignorePaths"), self.ignore_paths.values() or None)
 
 
-class ProfilesEditor(_SectionEditor):
+class ProfilesEditor(_MultiItemMixin, _SectionEditor):
     def __init__(self, parent=None) -> None:
         super().__init__("profiles", parent)
-        self.list = QListWidget(self)
+        self._list = self.list = QListWidget(self)
         self.description = QLineEdit(self)
         self.pins = KeyValueTableEditor(("Source ID", "Target ID (blank = disabled)"), self)
         add = QPushButton("Add Profile")
@@ -473,85 +592,86 @@ class ProfilesEditor(_SectionEditor):
         form.addRow(remove)
         row.addLayout(form)
         self.body.addLayout(row)
-        self.list.currentRowChanged.connect(self._selection_changed)
+        self._multi_init()
 
     def _add_profile(self) -> None:
-        name, ok = QInputDialog.getText(self, "Add Profile", "Profile ID (uppercase letters, digits, _ or -):")
+        name, ok = QInputDialog.getText(self, "Add Profile", "Profile ID (letters, digits, _ or -):")
         if not ok or not name.strip():
             return
-        if not _PROFILE_ID.match(name.strip()):
-            QMessageBox.warning(self, "Profiles", "Profile IDs use uppercase letters, digits, underscore, or dash.")
+        name = name.strip()
+        if not _PROFILE_ID.match(name):
+            QMessageBox.warning(self, "Profiles", "Profile IDs use letters, digits, underscore, or dash.")
             return
-        self.list.addItem(QListWidgetItem(name.strip()))
+        if name in self._multi_ids():
+            QMessageBox.warning(self, "Profiles", "A profile with that ID already exists.")
+            return
+        self.list.addItem(QListWidgetItem(name))
         self.list.setCurrentItem(self.list.item(self.list.count() - 1))
 
     def _remove_profile(self) -> None:
         item = self.list.currentItem()
         if item is not None:
+            self._multi_drop(item.text())
             self.list.takeItem(self.list.row(item))
 
-    def _selection_changed(self, row: int) -> None:
-        if row < 0 or self._service is None:
-            return
-        data = self._service.load()
-        entry = (data.get("profiles") or {}).get(self.list.item(row).text()) or {}
-        self.description.setText(str(entry.get("description", "")))
-        pins = entry.get("pins") or {}
-        self.pins.set_items([(source, "" if target is None else str(target)) for source, target in pins.items()])
-
     def _load(self, data) -> None:
+        self._multi_reset()
         self.list.clear()
         for profile_id in (data.get("profiles") or {}):
             self.list.addItem(QListWidgetItem(str(profile_id)))
         if self.list.count():
             self.list.setCurrentRow(0)
         else:
-            self.description.clear()
-            self.pins.set_items([])
+            self._multi_clear_widgets()
 
     def _apply(self, data) -> None:
-        from ruamel.yaml.comments import CommentedMap
+        self._multi_stash()
+        self._multi_apply_map(data, "profiles")
 
-        if not self.list.count():
-            data.pop("profiles", None)
-            return
-        profiles = data.get("profiles")
-        if not isinstance(profiles, (CommentedMap, dict)):
-            profiles = CommentedMap()
-            data["profiles"] = profiles
-        for index in range(self.list.count()):
-            profile_id = self.list.item(index).text()
-            entry = profiles.get(profile_id)
-            if not isinstance(entry, (CommentedMap, dict)):
-                entry = CommentedMap()
-                profiles[profile_id] = entry
-            description = self.description.text().strip() if index == self.list.currentRow() else str(entry.get("description", "")).strip()
-            if description:
-                entry["description"] = description
-            else:
-                entry.pop("description", None)
-            pins = entry.get("pins")
-            if not isinstance(pins, (CommentedMap, dict)):
-                pins = CommentedMap()
-                entry["pins"] = pins
-            for key in list(pins):
-                pins.pop(key)
-            if index == self.list.currentRow():
-                rows = self.pins.items()
-                if not rows:
-                    raise ValueError(f"Profile {profile_id!r} needs at least one pin.")
-                for source, target in rows:
-                    if not source.strip():
-                        raise ValueError("Every pin needs a source model ID.")
-                    pins[source.strip()] = target.strip() or None
-            if not pins:
-                raise ValueError(f"Profile {profile_id!r} needs at least one pin.")
+    def _draft_from_disk(self, entry: dict) -> dict:
+        pins = entry.get("pins") or {}
+        return {
+            "description": str(entry.get("description", "")),
+            "pins": [(str(source), "" if target is None else str(target)) for source, target in pins.items()],
+        }
+
+    def _draft_to_widgets(self, draft: dict) -> None:
+        self.description.setText(draft["description"])
+        self.pins.set_items(draft["pins"])
+
+    def _draft_from_widgets(self) -> dict:
+        return {
+            "description": self.description.text(),
+            "pins": self.pins.items(),
+        }
+
+    def _multi_clear_widgets(self) -> None:
+        self.description.clear()
+        self.pins.set_items([])
+
+    def _multi_validate_draft(self, profile_id: str, draft: dict) -> None:
+        pins = [(source.strip(), target.strip()) for source, target in draft["pins"] if source.strip() or target.strip()]
+        draft["pins"] = pins
+        if not pins:
+            raise ValueError(f"Profile {profile_id!r} needs at least one pin.")
+        for source, target in pins:
+            if not source:
+                raise ValueError(f"Profile {profile_id!r} has a pin without a source model ID.")
+            if not target:
+                raise ValueError(f"Profile {profile_id!r} pin {source!r} needs a target model ID.")
+
+    def _multi_write_entry(self, entry, draft: dict) -> None:
+        if draft["description"].strip():
+            entry["description"] = draft["description"].strip()
+        else:
+            entry.pop("description", None)
+        entry["pins"] = {source: target for source, target in draft["pins"]}
 
 
-class SelectorsEditor(_SectionEditor):
+class SelectorsEditor(_MultiItemMixin, _SectionEditor):
     def __init__(self, parent=None) -> None:
         super().__init__("selectors", parent)
-        self.list = QListWidget(self)
+        self._list = self.list = QListWidget(self)
         self.strategy = QComboBox(self)
         self.strategy.addItems(("warm", "pin", "spillover"))
         self.targets = OrderedStringListEditor(placeholder="Model, alias, or peer model ID", use_combo=True)
@@ -579,117 +699,136 @@ class SelectorsEditor(_SectionEditor):
         row.addLayout(form)
         self.body.addLayout(row)
         self.strategy.currentTextChanged.connect(lambda text: self.spillover.edit.setEnabled(text == "spillover"))
-        self.list.currentRowChanged.connect(self._selection_changed)
+        self._multi_init()
 
     def _add_selector(self) -> None:
         name, ok = QInputDialog.getText(self, "Add Selector", "Selector ID:")
         if not ok or not name.strip():
             return
-        self.list.addItem(QListWidgetItem(name.strip()))
+        name = name.strip()
+        if name in self._multi_ids():
+            QMessageBox.warning(self, "Selectors", "A selector with that ID already exists.")
+            return
+        self.list.addItem(QListWidgetItem(name))
         self.list.setCurrentItem(self.list.item(self.list.count() - 1))
 
     def _remove_selector(self) -> None:
         item = self.list.currentItem()
         if item is not None:
+            self._multi_drop(item.text())
             self.list.takeItem(self.list.row(item))
 
-    def _selection_changed(self, row: int) -> None:
-        if row < 0 or self._service is None:
-            return
-        data = self._service.load()
-        entry = (data.get("selectors") or {}).get(self.list.item(row).text()) or {}
-        self._fill_detail(entry)
-
-    def _fill_detail(self, entry) -> None:
-        self.strategy.setCurrentText(str(entry.get("strategy", "warm")))
-        self.spillover.edit.setEnabled(self.strategy.currentText() == "spillover")
-        self.targets.set_values(entry.get("targets") or [])
-        self.name.setText(str(entry.get("name", "")))
-        self.description.setText(str(entry.get("description", "")))
-        self.unlisted.setChecked(bool(entry.get("unlisted", False)))
-        settings = entry.get("settings") or {}
-        self.spillover.load("spillover" in settings, settings.get("spillover", 1))
-        self.metadata.set_object(entry.get("metadata"))
-
     def _load(self, data) -> None:
+        self._multi_reset()
         self.list.clear()
         for selector_id in (data.get("selectors") or {}):
             self.list.addItem(QListWidgetItem(str(selector_id)))
         if self.list.count():
             self.list.setCurrentRow(0)
         else:
-            self.strategy.setCurrentText("warm")
-            self.targets.set_values([])
-            self.name.clear()
-            self.description.clear()
-            self.unlisted.setChecked(False)
-            self.spillover.load(False, 1)
-            self.metadata.set_object(None)
-
+            self._multi_clear_widgets()
 
     def _apply(self, data) -> None:
-        from ruamel.yaml.comments import CommentedMap
+        self._multi_stash()
+        self._multi_apply_map(data, "selectors")
 
-        if not self.list.count():
-            data.pop("selectors", None)
-            return
-        selectors = data.get("selectors")
-        if not isinstance(selectors, (CommentedMap, dict)):
-            selectors = CommentedMap()
-            data["selectors"] = selectors
-        for index in range(self.list.count()):
-            selector_id = self.list.item(index).text()
-            entry = selectors.get(selector_id)
-            if not isinstance(entry, (CommentedMap, dict)):
-                entry = CommentedMap()
-                selectors[selector_id] = entry
-            is_current = index == self.list.currentRow()
-            strategy = self.strategy.currentText() if is_current else str(entry.get("strategy", "warm"))
-            entry["strategy"] = strategy
-            targets = self.targets.values() if is_current else list(entry.get("targets") or [])
-            if not targets:
-                raise ValueError(f"Selector {selector_id!r} needs at least one target.")
-            entry["targets"] = list(targets)
-            name = self.name.text().strip() if is_current else str(entry.get("name", "")).strip()
-            if name:
-                entry["name"] = name
-            else:
-                entry.pop("name", None)
-            description = self.description.text().strip() if is_current else str(entry.get("description", "")).strip()
-            if description:
-                entry["description"] = description
-            else:
-                entry.pop("description", None)
-            unlisted = self.unlisted.isChecked() if is_current else bool(entry.get("unlisted", False))
-            if unlisted:
-                entry["unlisted"] = True
-            else:
-                entry.pop("unlisted", None)
-            settings = entry.get("settings")
-            if not isinstance(settings, (CommentedMap, dict)):
-                settings = CommentedMap()
+    def _draft_from_disk(self, entry: dict) -> dict:
+        settings = entry.get("settings") or {}
+        return {
+            "strategy": str(entry.get("strategy", "warm")),
+            "targets": [str(target) for target in (entry.get("targets") or [])],
+            "name": str(entry.get("name", "")),
+            "description": str(entry.get("description", "")),
+            "unlisted": bool(entry.get("unlisted", False)),
+            "spillover": str(settings.get("spillover", 1)) if settings else None,
+            "metadata": structured_yaml_text(entry.get("metadata")),
+        }
+
+    def _draft_to_widgets(self, draft: dict) -> None:
+        self.strategy.setCurrentText(draft["strategy"])
+        if draft["strategy"] == "spillover" and draft["spillover"] is not None:
+            self.spillover.load(True, draft["spillover"])
+        else:
+            self.spillover.load(False, 1)
+        self.targets.set_values(draft["targets"])
+        self.name.setText(draft["name"])
+        self.description.setText(draft["description"])
+        self.unlisted.setChecked(draft["unlisted"])
+        self.metadata.set_text(draft["metadata"])
+
+    def _draft_from_widgets(self) -> dict:
+        return {
+            "strategy": self.strategy.currentText(),
+            "targets": self.targets.values(),
+            "name": self.name.text(),
+            "description": self.description.text(),
+            "unlisted": self.unlisted.isChecked(),
+            "spillover": self.spillover.explicit_raw(),
+            "metadata": self.metadata.raw(),
+        }
+
+    def _multi_clear_widgets(self) -> None:
+        self.strategy.setCurrentText("warm")
+        self.targets.set_values([])
+        self.name.clear()
+        self.description.clear()
+        self.unlisted.setChecked(False)
+        self.spillover.load(False, 1)
+        self.metadata.set_object(None)
+
+    def _multi_validate_draft(self, selector_id: str, draft: dict) -> None:
+        draft["targets"] = [str(target).strip() for target in draft["targets"] if str(target).strip()]
+        if not draft["targets"]:
+            raise ValueError(f"Selector {selector_id!r} needs at least one target.")
+        if draft["strategy"] == "spillover":
+            raw = draft["spillover"]
+            if raw is None:
+                raise ValueError(f"Selector {selector_id!r} (spillover) needs a spillover count.")
+            try:
+                value = int(raw)
+            except ValueError as error:
+                raise ValueError(f"Selector {selector_id!r} (spillover) needs an integer spillover count.") from error
+            if value < 1:
+                raise ValueError(f"Selector {selector_id!r} (spillover) needs a spillover count of at least 1.")
+            draft["spillover"] = str(value)
+        else:
+            draft["spillover"] = None
+        if draft["metadata"]:
+            parse_structured_yaml(draft["metadata"])
+
+    def _multi_write_entry(self, entry, draft: dict) -> None:
+        entry["strategy"] = draft["strategy"]
+        entry["targets"] = list(draft["targets"])
+        if draft["name"].strip():
+            entry["name"] = draft["name"].strip()
+        else:
+            entry.pop("name", None)
+        if draft["description"].strip():
+            entry["description"] = draft["description"].strip()
+        else:
+            entry.pop("description", None)
+        if draft["unlisted"]:
+            entry["unlisted"] = True
+        else:
+            entry.pop("unlisted", None)
+        settings = entry.get("settings")
+        if draft["strategy"] == "spillover":
+            if not isinstance(settings, dict):
+                settings = {}
                 entry["settings"] = settings
-            if strategy == "spillover":
-                spillover = self.spillover.explicit() if is_current else settings.get("spillover")
-                try:
-                    value = int(spillover)
-                except (TypeError, ValueError) as error:
-                    raise ValueError(f"Selector {selector_id!r} (spillover) needs an integer spillover count.") from error
-                if value < 1:
-                    raise ValueError(f"Selector {selector_id!r} (spillover) needs a spillover count of at least 1.")
-                settings["spillover"] = value
-            else:
-                settings.pop("spillover", None)
-            metadata = self.metadata.object() if is_current else entry.get("metadata")
-            if metadata:
-                entry["metadata"] = metadata
-            else:
-                entry.pop("metadata", None)
+            settings["spillover"] = int(draft["spillover"])
+        elif isinstance(settings, dict):
+            settings.pop("spillover", None)
             if not settings:
                 entry.pop("settings", None)
+        metadata = parse_structured_yaml(draft["metadata"])
+        if metadata:
+            entry["metadata"] = metadata
+        else:
+            entry.pop("metadata", None)
 
 
-class RoutingEditor(_SectionEditor):
+class RoutingEditor(_MultiItemMixin, _SectionEditor):
     def __init__(self, parent=None) -> None:
         super().__init__("routing", parent)
         self.legacy_banner = QLabel("")
@@ -717,7 +856,7 @@ class RoutingEditor(_SectionEditor):
 
         self.groups_box = QGroupBox("Group routing", router_group)
         self.groups_layout = QVBoxLayout(self.groups_box)
-        self.groups_list = QListWidget(self.groups_box)
+        self._list = self.groups_list = QListWidget(self.groups_box)
         self.group_swap = OptionalBool(True, self.groups_box)
         self.group_exclusive = OptionalBool(True, self.groups_box)
         self.group_persistent = OptionalBool(False, self.groups_box)
@@ -746,7 +885,7 @@ class RoutingEditor(_SectionEditor):
         router_form.addRow(self.matrix_box)
         self.body.addWidget(router_group)
 
-        self.groups_list.currentRowChanged.connect(self._group_selection_changed)
+        self._multi_init()
         self.router_use.currentIndexChanged.connect(self._router_mode_changed)
         self._router_mode_changed()
 
@@ -759,25 +898,66 @@ class RoutingEditor(_SectionEditor):
         name, ok = QInputDialog.getText(self, "Add Group", "Group name:")
         if not ok or not name.strip():
             return
-        self.groups_list.addItem(QListWidgetItem(name.strip()))
+        name = name.strip()
+        if name in self._multi_ids():
+            QMessageBox.warning(self, "Routing", "A group with that name already exists.")
+            return
+        self.groups_list.addItem(QListWidgetItem(name))
         self.groups_list.setCurrentItem(self.groups_list.item(self.groups_list.count() - 1))
 
     def _remove_group(self) -> None:
         item = self.groups_list.currentItem()
         if item is not None:
+            self._multi_drop(item.text())
             self.groups_list.takeItem(self.groups_list.row(item))
 
-    def _group_selection_changed(self, row: int) -> None:
-        if row < 0 or self._service is None:
-            return
+    def _multi_disk_entry(self, group_name: str) -> dict:
         data = self._service.load()
         groups = (((data.get("routing") or {}).get("router") or {}).get("settings") or {}).get("groups") or {}
-        group = groups.get(self.groups_list.item(row).text()) or {}
-        self.group_swap.load("swap" in group, group.get("swap", True))
-        self.group_exclusive.load("exclusive" in group, group.get("exclusive", True))
-        self.group_persistent.load("persistent" in group, group.get("persistent", False))
-        self.group_members.set_values(group.get("members") or [])
-        self.group_members.set_choices(self._model_ids(data))
+        group = groups.get(group_name)
+        return group if isinstance(group, dict) else {}
+
+    def _draft_from_disk(self, entry: dict) -> dict:
+        return {
+            "swap": entry.get("swap") if "swap" in entry else None,
+            "exclusive": entry.get("exclusive") if "exclusive" in entry else None,
+            "persistent": entry.get("persistent") if "persistent" in entry else None,
+            "members": [str(member) for member in (entry.get("members") or [])],
+        }
+
+    def _draft_to_widgets(self, draft: dict) -> None:
+        self.group_swap.load(draft["swap"] is not None, draft["swap"] if draft["swap"] is not None else True)
+        self.group_exclusive.load(draft["exclusive"] is not None, draft["exclusive"] if draft["exclusive"] is not None else True)
+        self.group_persistent.load(draft["persistent"] is not None, draft["persistent"] if draft["persistent"] is not None else False)
+        self.group_members.set_values(draft["members"])
+        self.group_members.set_choices(self._models)
+
+    def _draft_from_widgets(self) -> dict:
+        return {
+            "swap": self.group_swap.explicit(),
+            "exclusive": self.group_exclusive.explicit(),
+            "persistent": self.group_persistent.explicit(),
+            "members": self.group_members.values(),
+        }
+
+    def _multi_clear_widgets(self) -> None:
+        self.group_swap.reset()
+        self.group_exclusive.reset()
+        self.group_persistent.reset()
+        self.group_members.set_values([])
+
+    def _multi_validate_draft(self, group_name: str, draft: dict) -> None:
+        draft["members"] = [str(member).strip() for member in draft["members"] if str(member).strip()]
+        if not draft["members"]:
+            raise ValueError(f"Group {group_name!r} needs at least one member.")
+
+    def _multi_write_entry(self, entry, draft: dict) -> None:
+        for key in ("swap", "exclusive", "persistent"):
+            if draft[key] is not None:
+                entry[key] = bool(draft[key])
+            else:
+                entry.pop(key, None)
+        entry["members"] = list(draft["members"])
 
     def _load(self, data) -> None:
         legacy = [name for name in ("groups", "matrix") if name in data]
@@ -795,6 +975,8 @@ class RoutingEditor(_SectionEditor):
         router = routing.get("router") or {}
         use = router.get("use")
         self.router_use.setCurrentIndex(self.router_use.findData(use) if use else 0)
+        self._models = self._model_ids(data)
+        self._multi_reset()
         self.groups_list.clear()
         groups = (router.get("settings") or {}).get("groups") or {}
         for group_name in groups:
@@ -802,32 +984,23 @@ class RoutingEditor(_SectionEditor):
         if self.groups_list.count():
             self.groups_list.setCurrentRow(0)
         else:
-            self.group_swap.reset()
-            self.group_exclusive.reset()
-            self.group_persistent.reset()
-            self.group_members.set_values([])
+            self._multi_clear_widgets()
         settings = router.get("settings") or {}
         matrix = settings.get("matrix") or {}
         self.matrix_vars.set_items([(str(var), str(model)) for var, model in (matrix.get("vars") or {}).items()])
         self.matrix_costs.set_items([(str(var), str(cost)) for var, cost in (matrix.get("evict_costs") or {}).items()])
         self.matrix_sets.set_object(matrix.get("sets"))
-        self.group_members.set_choices(self._model_ids(data))
-
-    def _group_detail(self, group_name: str) -> dict:
-        group: dict = {}
-        for key, widget in (("swap", self.group_swap), ("exclusive", self.group_exclusive), ("persistent", self.group_persistent)):
-            value = widget.explicit()
-            if value is not None:
-                group[key] = value
-        members = self.group_members.values()
-        if members:
-            group["members"] = members
-        return group
+        self.group_members.set_choices(self._models)
 
     def _apply(self, data) -> None:
         from ruamel.yaml.comments import CommentedMap
 
-        routing: CommentedMap = CommentedMap()
+        existing = data.get("routing")
+        if not isinstance(existing, (CommentedMap, dict)):
+            existing = CommentedMap()
+            data["routing"] = existing
+        routing = existing
+
         priority_rows = self.priority.items()
         if priority_rows:
             priority = CommentedMap()
@@ -847,25 +1020,25 @@ class RoutingEditor(_SectionEditor):
             scheduler["use"] = "fifo"
             scheduler["settings"] = scheduler_settings
             routing["scheduler"] = scheduler
+        else:
+            routing.pop("scheduler", None)
+
         use = self.router_use.currentData()
-        if use == "group":
-            groups: CommentedMap = CommentedMap()
-            existing_groups = (((data.get("routing") or {}).get("router") or {}).get("settings") or {}).get("groups") or {}
-            for index in range(self.groups_list.count()):
-                group_name = self.groups_list.item(index).text()
-                if index == self.groups_list.currentRow():
-                    groups[group_name] = CommentedMap(self._group_detail(group_name))
-                else:
-                    existing = existing_groups.get(group_name)
-                    groups[group_name] = CommentedMap(existing) if isinstance(existing, dict) else CommentedMap()
-            if not groups:
-                raise ValueError("Group routing needs at least one group.")
-            settings = CommentedMap()
-            settings["groups"] = groups
+        router = routing.get("router")
+        if not isinstance(router, (CommentedMap, dict)):
             router = CommentedMap()
-            router["use"] = "group"
-            router["settings"] = settings
             routing["router"] = router
+        if use == "group":
+            if not self.groups_list.count():
+                raise ValueError("Group routing needs at least one group.")
+            self._multi_stash()
+            self._multi_apply_map(routing, "groups", path=("router", "settings"))
+            router["use"] = "group"
+            settings = router.get("settings")
+            if isinstance(settings, (CommentedMap, dict)):
+                settings.pop("matrix", None)
+                if not settings:
+                    router.pop("settings", None)
         elif use == "matrix":
             matrix = CommentedMap()
             vars_rows = self.matrix_vars.items()
@@ -892,22 +1065,27 @@ class RoutingEditor(_SectionEditor):
                 matrix["sets"] = sets
             if not matrix:
                 raise ValueError("Matrix routing needs vars, evict_costs, or sets.")
-            settings = CommentedMap()
+            settings = router.get("settings")
+            if not isinstance(settings, (CommentedMap, dict)):
+                settings = CommentedMap()
+                router["settings"] = settings
             settings["matrix"] = matrix
-            router = CommentedMap()
+            settings.pop("groups", None)
             router["use"] = "matrix"
-            router["settings"] = settings
-            routing["router"] = router
-        if routing:
-            data["routing"] = routing
         else:
+            router.pop("use", None)
+            router.pop("settings", None)
+            if not router:
+                routing.pop("router", None)
+
+        if not routing:
             data.pop("routing", None)
 
 
-class PeersEditor(_SectionEditor):
+class PeersEditor(_MultiItemMixin, _SectionEditor):
     def __init__(self, parent=None) -> None:
         super().__init__("peers", parent)
-        self.list = QListWidget(self)
+        self._list = self.list = QListWidget(self)
         self.proxy = QLineEdit(self)
         self.proxy.setPlaceholderText("http://localhost:5900")
         self.api_key = QLineEdit(self)
@@ -946,7 +1124,7 @@ class PeersEditor(_SectionEditor):
         form.addRow(remove)
         row.addLayout(form)
         self.body.addLayout(row)
-        self.list.currentRowChanged.connect(self._selection_changed)
+        self._multi_init()
 
     def _reveal_toggled(self, checked: bool) -> None:
         self.api_key.setEchoMode(QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password)
@@ -955,102 +1133,125 @@ class PeersEditor(_SectionEditor):
         name, ok = QInputDialog.getText(self, "Add Peer", "Peer ID:")
         if not ok or not name.strip():
             return
-        self.list.addItem(QListWidgetItem(name.strip()))
+        name = name.strip()
+        if name in self._multi_ids():
+            QMessageBox.warning(self, "Peers", "A peer with that ID already exists.")
+            return
+        self.list.addItem(QListWidgetItem(name))
         self.list.setCurrentItem(self.list.item(self.list.count() - 1))
 
     def _remove_peer(self) -> None:
         item = self.list.currentItem()
         if item is not None:
+            self._multi_drop(item.text())
             self.list.takeItem(self.list.row(item))
 
-    def _selection_changed(self, row: int) -> None:
-        if row < 0 or self._service is None:
-            return
-        data = self._service.load()
-        peer = (data.get("peers") or {}).get(self.list.item(row).text()) or {}
-        self._fill_detail(peer)
-
-    def _fill_detail(self, peer) -> None:
-        self.proxy.setText(str(peer.get("proxy", "")))
-        self.api_key.setText(str(peer.get("apiKey", "")))
-        self.models.set_values(peer.get("models") or [])
-        filters = peer.get("filters") or {}
-        self.strip_params.setText(str(filters.get("stripParams", "")))
-        self.set_params.set_object(filters.get("setParams"))
-        timeouts = peer.get("timeouts") or {}
-        for key, widget in self.timeouts.items():
-            widget.load(key in timeouts, timeouts.get(key))
-
     def _load(self, data) -> None:
+        self._multi_reset()
         self.list.clear()
         for peer_id in (data.get("peers") or {}):
             self.list.addItem(QListWidgetItem(str(peer_id)))
         if self.list.count():
             self.list.setCurrentRow(0)
         else:
-            self.proxy.clear()
-            self.api_key.clear()
-            self.models.set_values([])
-            self.strip_params.clear()
-            self.set_params.set_object(None)
-            for widget in self.timeouts.values():
-                widget.load(False, None)
+            self._multi_clear_widgets()
 
     def _apply(self, data) -> None:
-        from ruamel.yaml.comments import CommentedMap
+        self._multi_stash()
+        self._multi_apply_map(data, "peers")
 
-        if not self.list.count():
-            data.pop("peers", None)
-            return
-        peers = data.get("peers")
-        if not isinstance(peers, (CommentedMap, dict)):
-            peers = CommentedMap()
-            data["peers"] = peers
-        for index in range(self.list.count()):
-            peer_id = self.list.item(index).text()
-            is_current = index == self.list.currentRow()
-            entry = peers.get(peer_id)
-            if not isinstance(entry, (CommentedMap, dict)):
-                entry = CommentedMap()
-                peers[peer_id] = entry
-            proxy = self.proxy.text().strip() if is_current else str(entry.get("proxy", "")).strip()
-            if not proxy:
-                raise ValueError(f"Peer {peer_id!r} needs a proxy URL.")
-            entry["proxy"] = proxy
-            models = self.models.values() if is_current else list(entry.get("models") or [])
-            if not models:
-                raise ValueError(f"Peer {peer_id!r} needs at least one model.")
-            entry["models"] = list(models)
-            api_key = self.api_key.text().strip() if is_current else str(entry.get("apiKey", "")).strip()
-            if api_key:
-                entry["apiKey"] = api_key
+    def _draft_from_disk(self, entry: dict) -> dict:
+        filters = entry.get("filters") or {}
+        timeouts = entry.get("timeouts") or {}
+        return {
+            "proxy": str(entry.get("proxy", "")),
+            "api_key": str(entry.get("apiKey", "")),
+            "models": [str(model) for model in (entry.get("models") or [])],
+            "strip_params": str(filters.get("stripParams", "")),
+            "set_params": structured_yaml_text(filters.get("setParams")),
+            "timeouts": {key: (str(value) if value is not None else None) for key, value in timeouts.items()},
+        }
+
+    def _draft_to_widgets(self, draft: dict) -> None:
+        self.proxy.setText(draft["proxy"])
+        self.api_key.setText(draft["api_key"])
+        self.models.set_values(draft["models"])
+        self.strip_params.setText(draft["strip_params"])
+        self.set_params.set_text(draft["set_params"])
+        for key, widget in self.timeouts.items():
+            raw = draft["timeouts"].get(key)
+            widget.load(raw is not None, raw or 0)
+
+    def _draft_from_widgets(self) -> dict:
+        return {
+            "proxy": self.proxy.text(),
+            "api_key": self.api_key.text(),
+            "models": self.models.values(),
+            "strip_params": self.strip_params.text(),
+            "set_params": self.set_params.raw(),
+            "timeouts": {key: widget.explicit_raw() for key, widget in self.timeouts.items()},
+        }
+
+    def _multi_clear_widgets(self) -> None:
+        self.proxy.clear()
+        self.api_key.clear()
+        self.models.set_values([])
+        self.strip_params.clear()
+        self.set_params.set_text("")
+        for widget in self.timeouts.values():
+            widget.reset()
+
+    def _multi_validate_draft(self, peer_id: str, draft: dict) -> None:
+        draft["proxy"] = draft["proxy"].strip()
+        if not draft["proxy"]:
+            raise ValueError(f"Peer {peer_id!r} needs a proxy URL.")
+        draft["api_key"] = draft["api_key"].strip()
+        draft["strip_params"] = draft["strip_params"].strip()
+        draft["models"] = [str(model).strip() for model in draft["models"] if str(model).strip()]
+        if not draft["models"]:
+            raise ValueError(f"Peer {peer_id!r} needs at least one model.")
+        if draft["set_params"]:
+            parse_structured_yaml(draft["set_params"])
+        for key, raw in draft["timeouts"].items():
+            if raw is None:
+                continue
+            try:
+                value = int(raw)
+            except ValueError as error:
+                raise ValueError(f"Peer {peer_id!r} timeout {key!r} must be a whole number.") from error
+            draft["timeouts"][key] = str(value)
+
+    def _multi_write_entry(self, entry, draft: dict) -> None:
+        entry["proxy"] = draft["proxy"]
+        if draft["api_key"]:
+            entry["apiKey"] = draft["api_key"]
+        else:
+            entry.pop("apiKey", None)
+        entry["models"] = list(draft["models"])
+        filters = entry.get("filters")
+        if not isinstance(filters, dict):
+            filters = {}
+            entry["filters"] = filters
+        if draft["strip_params"]:
+            filters["stripParams"] = draft["strip_params"]
+        else:
+            filters.pop("stripParams", None)
+        set_params = parse_structured_yaml(draft["set_params"])
+        if set_params:
+            filters["setParams"] = set_params
+        else:
+            filters.pop("setParams", None)
+        if not filters:
+            entry.pop("filters", None)
+        timeouts = entry.get("timeouts")
+        if not isinstance(timeouts, dict):
+            timeouts = {}
+            entry["timeouts"] = timeouts
+        for key in self.timeouts:
+            raw = draft["timeouts"].get(key)
+            if raw is None:
+                timeouts.pop(key, None)
             else:
-                entry.pop("apiKey", None)
-            filters = entry.get("filters")
-            if not isinstance(filters, (CommentedMap, dict)):
-                filters = CommentedMap()
-                entry["filters"] = filters
-            strip_params = self.strip_params.text().strip() if is_current else str(filters.get("stripParams", "")).strip()
-            if strip_params:
-                filters["stripParams"] = strip_params
-            else:
-                filters.pop("stripParams", None)
-            set_params = self.set_params.object() if is_current else filters.get("setParams")
-            if set_params:
-                filters["setParams"] = set_params
-            else:
-                filters.pop("setParams", None)
-            if not filters:
-                entry.pop("filters", None)
-            timeouts = entry.get("timeouts")
-            if not isinstance(timeouts, (CommentedMap, dict)):
-                timeouts = CommentedMap()
-                entry["timeouts"] = timeouts
-            for key, widget in self.timeouts.items():
-                value = widget.explicit() if is_current else timeouts.get(key)
-                if value is None:
-                    timeouts.pop(key, None)
-                else:
-                    timeouts[key] = value
-            if not timeouts:
-                entry.pop("timeouts", None)
+                timeouts[key] = int(raw)
+        if not timeouts:
+            entry.pop("timeouts", None)

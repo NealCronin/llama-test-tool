@@ -39,6 +39,14 @@ class OptionalSettingWidget(QWidget):
     def explicit(self):
         return None if not self.set_explicit.isChecked() else self._parse(self.edit.text())
 
+    def explicit_raw(self):
+        """Capture the raw un-parsed state without raising: ``None`` when not set, else the text.
+
+        Used by multi-item editors so switching selection never fails on half-typed values;
+        validation happens when the value is actually written.
+        """
+        return None if not self.set_explicit.isChecked() else self.edit.text().strip()
+
     def reset(self) -> None:
         self.edit.setText(self._to_text(self._default))
         self.set_explicit.setChecked(False)
@@ -68,7 +76,6 @@ class OptionalInt(OptionalSettingWidget):
 
 class OptionalBool(QWidget):
     """Three-state boolean: effective default, explicit true, explicit false."""
-
     def __init__(self, default: bool, parent=None) -> None:
         super().__init__(parent)
         self._default = default
@@ -95,7 +102,12 @@ class OptionalBool(QWidget):
 
 
 class OptionalChoice(QWidget):
-    """A fixed set of values plus a leading 'use default' entry."""
+    """A fixed set of values plus a leading 'use default' entry.
+
+    The default value is offered both as the leading *absent* entry (data ``None``)
+    and as an explicit entry, so a key stored at its default (``logLevel: info``)
+    stays distinguishable from an absent key.
+    """
 
     def __init__(self, items, default, parent=None) -> None:
         super().__init__(parent)
@@ -103,8 +115,7 @@ class OptionalChoice(QWidget):
         self.choice = QComboBox(self)
         self.choice.addItem(f"Default ({default})" if default else "Default (none)", None)
         for item in items:
-            if item != default:
-                self.choice.addItem(str(item), item)
+            self.choice.addItem(str(item), item)
         if default not in items:
             self.choice.addItem(str(default), default)
         layout = QHBoxLayout(self)
@@ -112,8 +123,14 @@ class OptionalChoice(QWidget):
         layout.addWidget(self.choice, 1)
 
     def load(self, present: bool, value) -> None:
-        index = self.choice.findData(value) if present else 0
-        self.choice.setCurrentIndex(index if index >= 0 else 0)
+        if present:
+            index = self.choice.findData(value)
+            if index < 0:
+                self.choice.addItem(str(value), value)
+                index = self.choice.count() - 1
+            self.choice.setCurrentIndex(index)
+        else:
+            self.choice.setCurrentIndex(0)
 
     def effective(self):
         value = self.choice.currentData()

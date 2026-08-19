@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
-    QTabWidget, QVBoxLayout, QWidget,
+    QSplitter, QTabWidget, QVBoxLayout, QWidget,
 )
 from app.models.command import Command
 from app.models.hf_download import TARGET_LABELS
@@ -154,7 +154,13 @@ class MainWindow(QMainWindow):
         self.console = OutputConsole()
         builder_page = QWidget()
         builder_layout = QVBoxLayout(builder_page)
-        builder_layout.addWidget(self.builder, 3)
+        builder_layout.setContentsMargins(0, 0, 0, 0)
+        builder_splitter = QSplitter(Qt.Orientation.Vertical, builder_page)
+        builder_splitter.addWidget(self.builder)
+        builder_splitter.addWidget(self.console)
+        builder_splitter.setStretchFactor(0, 3)
+        builder_splitter.setStretchFactor(1, 2)
+        builder_layout.addWidget(builder_splitter, 1)
         self.hf_service = HfCliService(self)
         self.hf_tab = HfDownloadTab(settings, self.hf_service)
         self.viewer = ConfigViewer(settings)

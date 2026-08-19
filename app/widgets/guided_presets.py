@@ -103,6 +103,18 @@ class DeviceSplitPresetDialog(_PresetDialog):
             "--tensor-split": [self.tensor_split.text().strip()], "--main-gpu": [self.main_gpu.text().strip()],
             "--gpu-layers": [self.gpu_layers.text().strip()],
         }
+        if self.all_moe_cpu.isChecked():
+            result["--cpu-moe"] = []
+        else:
+            layers = self.cpu_moe_layers.text().strip()
+            if layers:
+                try:
+                    count = str(int(layers))
+                except ValueError as error:
+                    raise ValueError("CPU-MoE layer count must be a whole number.") from error
+                if int(layers) < 0:
+                    raise ValueError("CPU-MoE layer count cannot be negative.")
+                result["--n-cpu-moe"] = [count]
         return result
 
 
