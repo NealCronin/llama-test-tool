@@ -263,7 +263,7 @@ class HfDownloadTab(QWidget):
         post_row = QHBoxLayout()
         self.open_folder_button = QPushButton("Open Folder", self)
         self.open_folder_button.clicked.connect(self._open_folder)
-        self.copy_path_button = QPushButton("Copy Path", self)
+        self.copy_path_button = QPushButton("Copy Folder Path", self)
         self.copy_path_button.clicked.connect(self._copy_path)
         self.use_as_buttons: dict[HfTarget, QPushButton] = {}
         for target, flag in _USE_AS_FLAG.items():
@@ -330,6 +330,7 @@ class HfDownloadTab(QWidget):
 
     def _on_option_changed(self, *_args) -> None:
         self._persist()
+        self._update_control_states()
         self._update_preview()
 
     # ------------------------------------------------------------------ status
@@ -339,52 +340,38 @@ class HfDownloadTab(QWidget):
 
     def _on_capabilities(self, caps: HfCliCapabilities) -> None:
         self._capabilities = caps
-        if caps.dry_run:
-            self.preview_button.setToolTip("Runs `hf download … --dry-run` (does not touch the destination).")
-        else:
-            self.preview_button.setToolTip("The installed hf CLI has no --dry-run (needs huggingface_hub 1.0.0+).")
-        self.preview_button.setEnabled(caps.dry_run)
-        self._apply_capability_gates()
+        self._apply_capability_notes()
+        self._update_control_states()
         self._update_status()
         self._update_preview()
 
-    def _apply_capability_gates(self) -> None:
-        """Disable form controls whose option flag the installed CLI lacks.
+    def _apply_capability_notes(self) -> None:
+        """Explain capability gaps (tooltips + the compatibility note).
 
-        The command preview still errors on unsupported options (defense in
-        depth), but a disabled control plus the note below makes the reason
-        visible before the user ever clicks Start.
+        Explanatory text only: enabled/disabled state is decided by
+        _update_control_states, which reads the same capabilities.
         """
         caps = self._capabilities
         if caps is None:
             return
+        if caps.dry_run:
+            self.preview_button.setToolTip("Runs `hf download … --dry-run` (does not touch the destination).")
+        else:
+            self.preview_button.setToolTip("The installed hf CLI has no --dry-run (needs huggingface_hub 1.0.0+).")
         gates = (
-            (self.repo_type_combo, caps.repo_type),
-            (self.revision_edit, caps.revision),
-            (self.include_edit, caps.include),
-            (self.exclude_edit, caps.exclude),
-            (self.custom_local_edit, caps.local_dir),
-            (self.cache_edit, caps.cache_dir),
-            (self.force_check, caps.force_download),
-            (self.workers_check, caps.max_workers),
-            (self.workers_spin, caps.max_workers),
+            (self.repo_type_combo, "repo_type", "--repo-type", "Repository Type"),
+            (self.revision_edit, "revision", "--revision", "Revision"),
+            (self.include_edit, "include", "--include", "Include patterns"),
+            (self.exclude_edit, "exclude", "--exclude", "Exclude patterns"),
+            (self.custom_local_edit, "local_dir", "--local-dir", "Custom Folder"),
+            (self.cache_edit, "cache_dir", "--cache-dir", "Custom cache"),
+            (self.force_check, "force_download", "--force-download", "Force Download"),
+            (self.workers_check, "max_workers", "--max-workers", "Max workers"),
+            (self.workers_spin, "max_workers", "--max-workers", "Max workers"),
         )
-        labels = {
-            self.repo_type_combo: ("--repo-type", "Repository Type"),
-            self.revision_edit: ("--revision", "Revision"),
-            self.include_edit: ("--include", "Include patterns"),
-            self.exclude_edit: ("--exclude", "Exclude patterns"),
-            self.custom_local_edit: ("--local-dir", "Custom Folder"),
-            self.cache_edit: ("--cache-dir", "Custom cache"),
-            self.force_check: ("--force-download", "Force Download"),
-            self.workers_check: ("--max-workers", "Max workers"),
-            self.workers_spin: ("--max-workers", "Max workers"),
-        }
         missing: list[str] = []
-        for widget, supported in gates:
-            flag, label = labels[widget]
-            widget.setEnabled(supported)
-            if supported:
+        for widget, capability, flag, label in gates:
+            if getattr(caps, capability):
                 widget.setToolTip("")
             else:
                 widget.setToolTip(f"The installed hf CLI lacks {flag} ({label}). Update with: python -m pip install -U huggingface_hub")
@@ -441,25 +428,66 @@ class HfDownloadTab(QWidget):
             return HfSelectionMode.PATTERNS
         return HfSelectionMode.ENTIRE
 
-    def _update_selection_visibility(self) -> None:
-        mode = self._selected_mode()
-        self.files_edit.setEnabled(mode is HfSelectionMode.EXACT)
-        self.include_edit.setEnabled(mode is HfSelectionMode.PATTERNS)
-        # Exclude is meaningful for both ENTIRE ("everything except these") and
-        # PATTERNS; only EXACT (positional filenames) has no exclude semantic.
-        self.exclude_edit.setEnabled(mode is not HfSelectionMode.EXACT)
+    def _update_selection_visibility(self, *_args) -> None:
+        """Mode switches recompute enabled state through the single authority."""
+        self._update_control_states()
 
-    def _update_destination(self) -> None:
+    def _update_destination(self, *_args) -> None:
+        """Explain the chosen destination (note text only); enabled state is
+        recomputed by _update_control_states, not decided here."""
         target = HfTarget(self.destination_combo.currentData() or HfTarget.MODELS.value)
-        self.custom_local_edit.setEnabled(target is HfTarget.CUSTOM)
-        self.cache_edit.setEnabled(target is HfTarget.CACHE)
-        if target in TARGET_SETTING_KEYS:
+        caps = self._capabilities
+        if target is not HfTarget.CACHE and caps is not None and not caps.local_dir:
+            self.destination_note.setText(
+                f"{TARGET_LABELS[target]} needs --local-dir, which the installed hf CLI lacks; choose HF Cache Only."
+            )
+        elif target in TARGET_SETTING_KEYS:
             folder = getattr(self.settings, TARGET_SETTING_KEYS[target])
             self.destination_note.setText(f"Downloads to the configured {TARGET_LABELS[target]}: {folder or '(not set — pick it in Application Paths)'}")
         elif target is HfTarget.CACHE:
             self.destination_note.setText("Downloads to the Hugging Face cache only (no --local-dir). Application selectors are not refreshed.")
         else:
             self.destination_note.setText("Downloads to the custom folder you choose. Application selectors are not refreshed.")
+        self._update_control_states()
+
+    def _update_control_states(self) -> None:
+        """Sole authority for the form's dynamic enabled state.
+
+        Combines the current selection mode, the selected destination, the
+        detected CLI capabilities, and the worker-override checkbox. Other
+        callbacks may update explanatory text but must never call setEnabled
+        on these controls. Before capabilities arrive the form stays
+        permissive (safe to fill in); every state is recomputed once
+        capabilities are known.
+        """
+        caps = self._capabilities
+
+        def available(name: str) -> bool:
+            return caps is None or getattr(caps, name)
+
+        mode = self._selected_mode()
+        target = HfTarget(self.destination_combo.currentData() or HfTarget.MODELS.value)
+
+        self.files_edit.setEnabled(mode is HfSelectionMode.EXACT)
+        self.include_edit.setEnabled(mode is HfSelectionMode.PATTERNS and available("include"))
+        self.exclude_edit.setEnabled(mode is not HfSelectionMode.EXACT and available("exclude"))
+        self.repo_type_combo.setEnabled(available("repo_type"))
+        self.revision_edit.setEnabled(available("revision"))
+        self.force_check.setEnabled(available("force_download"))
+        self.workers_check.setEnabled(available("max_workers"))
+        self.workers_spin.setEnabled(available("max_workers") and self.workers_check.isChecked())
+        self.custom_local_edit.setEnabled(target is HfTarget.CUSTOM and available("local_dir"))
+        self.cache_edit.setEnabled(target is HfTarget.CACHE and available("cache_dir"))
+        self.preview_button.setEnabled(available("dry_run") and not self._previewing)
+
+        # Destination entries: every configured-folder target and Custom need
+        # --local-dir; HF Cache Only never does (a blank cache path uses the
+        # CLI default cache, so it stays usable without --cache-dir).
+        model = self.destination_combo.model()
+        for index in range(self.destination_combo.count()):
+            entry_target = HfTarget(self.destination_combo.itemData(index))
+            needs_local_dir = entry_target is not HfTarget.CACHE
+            model.item(index).setEnabled(caps is None or (not needs_local_dir or caps.local_dir))
 
     def _split_list(self, text: str) -> list[str]:
         return [part.strip() for part in text.replace("\n", ",").split(",") if part.strip()]
@@ -523,7 +551,7 @@ class HfDownloadTab(QWidget):
             self.preview_box.setPlainText("The installed hf CLI does not support --dry-run; Preview Download is disabled.")
             return
         self._previewing = True
-        self.preview_button.setEnabled(False)
+        self._update_control_states()
         self.preview_box.setPlainText("Running dry-run preview…")
         self.post_status.setText("Previewing…")
         try:
@@ -535,8 +563,7 @@ class HfDownloadTab(QWidget):
 
     def _on_preview_finished(self, report: HfDryRunReport) -> None:
         self._previewing = False
-        if self._capabilities is not None:
-            self.preview_button.setEnabled(self._capabilities.dry_run)
+        self._update_control_states()  # re-enables Preview only if caps.dry_run
         if report.exit_code != 0:
             self.preview_box.setPlainText(redact_secrets(f"Preview failed (exit code {report.exit_code}):\n{report.raw}"))
             self.post_status.setText(f"Preview failed (exit code {report.exit_code}).")
@@ -621,21 +648,52 @@ class HfDownloadTab(QWidget):
         self._update_post_buttons()
 
     # ------------------------------------------------------------------ post download
+    def _result_candidates(self, result: HfDownloadResult) -> list[str]:
+        """Unambiguous 'Use as …' candidates for a finished download.
+
+        A candidate must have a valid suffix for the target and must resolve
+        to an existing file. For an EXACT single-file request the requested
+        filename itself is the candidate even when the pathname already
+        existed (force-replace/verify is still a successful result), so
+        ``new_files == ()`` does not hide it. For multiple EXACT filenames we
+        never guess; PATTERNS/ENTIRE only trust freshly created files.
+        """
+        if result is None or not result.ok or not result.request.local_dir:
+            return []
+        request = result.request
+        if request.target not in _CANDIDATE_SUFFIXES:
+            return []
+        suffixes = _CANDIDATE_SUFFIXES[request.target]
+        parent = Path(request.local_dir)
+        if request.selection_mode is HfSelectionMode.EXACT:
+            if len(request.filenames) != 1:
+                return []  # multiple requested files: never guess
+            name = request.filenames[0]
+            if name.lower().endswith(suffixes) and (parent / name).is_file():
+                return [name]
+            return []
+        return [name for name in result.new_files if name.lower().endswith(suffixes)]
+
     def _update_post_buttons(self) -> None:
         result = self._last_result
         for target in HfTarget:
             if target in self.use_as_buttons:
                 self.use_as_buttons[target].setEnabled(False)
-        if result is None or not result.ok or not result.new_files:
+        if result is None or not result.ok:
             self.open_folder_button.setEnabled(False)
             self.copy_path_button.setEnabled(False)
             return
         folder = result.request.local_dir
-        self.open_folder_button.setEnabled(bool(folder and Path(folder).is_dir()))
-        self.copy_path_button.setEnabled(bool(folder))
+        # A successful run with a real local destination is actionable even
+        # when every pathname already existed (exit status is the success
+        # criterion, not the folder diff).
+        usable_folder = bool(folder and Path(folder).is_dir())
+        self.open_folder_button.setEnabled(usable_folder)
+        self.copy_path_button.setEnabled(usable_folder)
+        if not usable_folder:
+            return
         if result.request.target in _CANDIDATE_SUFFIXES:
-            suffixes = _CANDIDATE_SUFFIXES[result.request.target]
-            candidates = [name for name in result.new_files if name.lower().endswith(suffixes)]
+            candidates = self._result_candidates(result)
             if len(candidates) == 1:
                 self.use_as_buttons[result.request.target].setEnabled(True)
 
@@ -666,8 +724,7 @@ class HfDownloadTab(QWidget):
             return
         if result.request.target not in _CANDIDATE_SUFFIXES:
             return
-        suffixes = _CANDIDATE_SUFFIXES[result.request.target]
-        candidates = [name for name in result.new_files if name.lower().endswith(suffixes)]
+        candidates = self._result_candidates(result)
         if len(candidates) != 1:
             return
         self.use_requested.emit(flag, str(Path(result.request.local_dir) / candidates[0]))

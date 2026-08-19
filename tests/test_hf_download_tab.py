@@ -43,22 +43,30 @@ def _service_teardown(_shutdown_services) -> None:  # reuse the QProcess-safe te
 
 @pytest.fixture
 def launch_tab(fake_hf_path, tmp_path):
-    _write_fake_hf(fake_hf_path)
-    settings = AppSettings(
-        models_folder=str(fake_hf_path / "models"),
-        mmproj_folder=str(fake_hf_path / "mmproj"),
-        drafters_folder=str(fake_hf_path / "drafters"),
-        template_folder=str(fake_hf_path / "templates"),
-        hf_destination=HfTarget.MODELS.value,
-        hf_repo_type=HfRepoType.MODEL.value,
-    )
-    service = HfCliService()
-    tab = HfDownloadTab(settings, service)
-    tab.show()
-    QApplication.processEvents()
-    _spin_until(lambda: service.capabilities is not None and service.capabilities.path)
-    yield tab, service
-    tab.close()
+    """Factory: launch the tab with a fake CLI, optionally missing capability flags."""
+    tabs: list[HfDownloadTab] = []
+
+    def _launch(missing: frozenset[str] = frozenset()):
+        _write_fake_hf(fake_hf_path, missing=missing)
+        settings = AppSettings(
+            models_folder=str(fake_hf_path / "models"),
+            mmproj_folder=str(fake_hf_path / "mmproj"),
+            drafters_folder=str(fake_hf_path / "drafters"),
+            template_folder=str(fake_hf_path / "templates"),
+            hf_destination=HfTarget.MODELS.value,
+            hf_repo_type=HfRepoType.MODEL.value,
+        )
+        service = HfCliService()
+        tab = HfDownloadTab(settings, service)
+        tab.show()
+        QApplication.processEvents()
+        _spin_until(lambda: service.capabilities is not None and service.capabilities.path)
+        tabs.append(tab)
+        return tab, service
+
+    yield _launch
+    for tab in tabs:
+        tab.close()
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +75,7 @@ def launch_tab(fake_hf_path, tmp_path):
 
 
 def test_repo_form_widgets_are_visible_and_usable(launch_tab):
-    tab, _service = launch_tab
+    tab, _service = launch_tab()
     QApplication.processEvents()
     for widget in (tab.repo_edit, tab.revision_edit, tab.repo_type_combo, tab.files_edit, tab.exclude_edit):
         assert widget.isVisibleTo(tab), f"{widget} is not reachable in the visible hierarchy"
@@ -80,7 +88,7 @@ def test_repo_form_widgets_are_visible_and_usable(launch_tab):
 
 
 def test_journey_a_form_drives_queued_request(launch_tab):
-    tab, service = launch_tab
+    tab, service = launch_tab()
     tab.repo_edit.setText("owner/repo")
     tab.revision_edit.setText("main")
     tab.exact_radio.setChecked(True)
@@ -104,7 +112,7 @@ def test_journey_a_form_drives_queued_request(launch_tab):
 
 def test_journey_a_selectors_and_preview_agree_on_excludes(launch_tab):
     """ENTIRE + exclude is a legal request and visible in the preview."""
-    tab, service = launch_tab
+    tab, service = launch_tab()
     tab.repo_edit.setText("owner/repo")
     QApplication.processEvents()
     tab.exclude_edit.setText("*.safetensors, *.bin")
@@ -126,7 +134,7 @@ def test_journey_a_selectors_and_preview_agree_on_excludes(launch_tab):
 
 
 def test_journey_b_preview_twice_no_deleted_object(launch_tab):
-    tab, _service = launch_tab
+    tab, _service = launch_tab()
     tab.repo_edit.setText("owner/repo")
     tab.exact_radio.setChecked(True)
     tab.files_edit.setText("model.gguf")
@@ -142,7 +150,7 @@ def test_journey_b_preview_twice_no_deleted_object(launch_tab):
 
 def test_journey_b_stale_preview_cannot_overwrite_newer(launch_tab):
     service, _tab = None, None
-    tab, _ = launch_tab
+    tab, _ = launch_tab()
     tab.repo_edit.setText("o/slow")  # fake dry-run that sleeps 3s
     tab._preview_download()
     QApplication.processEvents()
@@ -159,7 +167,7 @@ def test_journey_b_stale_preview_cannot_overwrite_newer(launch_tab):
 
 
 def test_journey_b_preview_failure_is_surfaced(launch_tab):
-    tab, _service = launch_tab
+    tab, _service = launch_tab()
     tab.repo_edit.setText("o/dryfail")
     tab._preview_download()
     _spin_until(lambda: "Preview failed (exit code 3)" in tab.post_status.text())
@@ -187,7 +195,7 @@ def _row_of(tab, job_id: str) -> int:
 
 
 def test_journey_c_reorder_moves_visible_and_execution_order(launch_tab):
-    tab, service = launch_tab
+    tab, service = launch_tab()
     tab.repo_edit.setText("o/slow")  # A: slow download, stays active
     tab._add_to_queue()
     _spin_until(lambda: service.active_id is not None)
@@ -232,7 +240,7 @@ def test_journey_c_reorder_moves_visible_and_execution_order(launch_tab):
 
 
 def test_journey_d_cancel_active_leaves_queue_intact(launch_tab):
-    tab, service = launch_tab
+    tab, service = launch_tab()
     tab.repo_edit.setText("o/slow")
     tab._add_to_queue()
     _spin_until(lambda: service.active_id is not None)
@@ -258,7 +266,7 @@ def test_journey_d_cancel_active_leaves_queue_intact(launch_tab):
 
 
 def test_secret_never_reaches_visible_surfaces(launch_tab):
-    tab, service = launch_tab
+    tab, service = launch_tab()
     tab.repo_edit.setText("o/leak")  # fake CLI echoes SENTINEL, exits 0
     tab._add_to_queue()
     _spin_until(lambda: service.jobs() and service.job(service.jobs()[-1].id).state == HfJobState.COMPLETED)
@@ -284,7 +292,7 @@ def test_secret_never_reaches_visible_surfaces(launch_tab):
 
 
 def test_models_download_enables_open_copy_and_use_as_model(launch_tab):
-    tab, service = launch_tab
+    tab, service = launch_tab()
     tab.repo_edit.setText("o/r")
     tab.exact_radio.setChecked(True)
     tab.files_edit.setText("fake-model.gguf")
@@ -298,7 +306,7 @@ def test_models_download_enables_open_copy_and_use_as_model(launch_tab):
 
 
 def test_cache_download_has_no_local_destination_actions(launch_tab):
-    tab, service = launch_tab
+    tab, service = launch_tab()
     tab.destination_combo.setCurrentIndex(tab.destination_combo.findData(HfTarget.CACHE.value))
     tab.repo_edit.setText("o/noop")  # fake echoes, exits 0, no --local-dir needed
     tab._add_to_queue()
@@ -308,3 +316,147 @@ def test_cache_download_has_no_local_destination_actions(launch_tab):
     assert not tab.copy_path_button.isEnabled()
     assert not tab.use_as_buttons[HfTarget.MODELS].isEnabled()
     assert service.job(service.jobs()[-1].id).result.ok
+
+
+# ---------------------------------------------------------------------------
+# Part 1: capability composition — disabled controls must survive state changes
+# ---------------------------------------------------------------------------
+
+
+def test_exclude_disabled_by_capability_survives_mode_switches(launch_tab):
+    tab, _service = launch_tab(missing={"exclude"})
+    assert not tab.exclude_edit.isEnabled()  # gated by capability
+    tab.patterns_radio.setChecked(True)  # would previously have re-enabled it
+    QApplication.processEvents()
+    assert not tab.exclude_edit.isEnabled()
+    tab.entire_radio.setChecked(True)
+    QApplication.processEvents()
+    assert not tab.exclude_edit.isEnabled()
+    tab.exact_radio.setChecked(True)
+    QApplication.processEvents()
+    assert not tab.exclude_edit.isEnabled()
+
+
+def test_include_disabled_by_capability_survives_mode_switch(launch_tab):
+    tab, _service = launch_tab(missing={"include"})
+    tab.patterns_radio.setChecked(True)
+    QApplication.processEvents()
+    assert not tab.include_edit.isEnabled()
+
+
+def test_custom_local_edit_stays_disabled_without_local_dir(launch_tab):
+    tab, _service = launch_tab(missing={"local_dir"})
+    cache_index = tab.destination_combo.findData(HfTarget.CACHE.value)
+    custom_index = tab.destination_combo.findData(HfTarget.CUSTOM.value)
+    tab.destination_combo.setCurrentIndex(custom_index)
+    QApplication.processEvents()
+    assert not tab.custom_local_edit.isEnabled()
+    # switch away and back — the capability gate must persist
+    tab.destination_combo.setCurrentIndex(cache_index)
+    QApplication.processEvents()
+    tab.destination_combo.setCurrentIndex(custom_index)
+    QApplication.processEvents()
+    assert not tab.custom_local_edit.isEnabled()
+    # every --local-dir destination entry is unavailable; CACHE is the escape
+    model = tab.destination_combo.model()
+    for target in HfTarget:
+        index = tab.destination_combo.findData(target.value)
+        assert model.item(index).isEnabled() == (target is HfTarget.CACHE)
+
+
+def test_cache_blank_path_valid_without_cache_dir_capability(launch_tab):
+    tab, service = launch_tab(missing={"cache_dir"})
+    tab.repo_edit.setText("o/r")
+    tab.destination_combo.setCurrentIndex(tab.destination_combo.findData(HfTarget.CACHE.value))
+    QApplication.processEvents()
+    assert not tab.cache_edit.isEnabled()  # a custom cache path is unusable
+    request, error = tab._build_request()
+    assert error == ""
+    assert request is not None
+    assert request.target is HfTarget.CACHE
+    assert request.cache_dir == ""  # blank path needs no --cache-dir
+    QApplication.processEvents()
+    assert "--cache-dir" not in tab.command_preview.text()
+
+
+def test_workers_state_follows_capability_and_checkbox(launch_tab):
+    tab, _service = launch_tab()  # max-workers supported
+    assert tab.workers_check.isEnabled()
+    assert not tab.workers_spin.isEnabled()  # override unchecked
+    tab.workers_check.setChecked(True)
+    QApplication.processEvents()
+    assert tab.workers_spin.isEnabled()
+    tab.workers_check.setChecked(False)
+    QApplication.processEvents()
+    assert not tab.workers_spin.isEnabled()
+
+
+def test_workers_disabled_without_max_workers_capability(launch_tab):
+    tab, _service = launch_tab(missing={"max_workers"})
+    assert not tab.workers_check.isEnabled()
+    assert not tab.workers_spin.isEnabled()
+
+
+# ---------------------------------------------------------------------------
+# Part 3: post-download actions use result semantics, not just new_files
+# ---------------------------------------------------------------------------
+
+
+def test_exact_existing_file_enables_use_as_model(launch_tab, fake_hf_path):
+    tab, service = launch_tab()
+    models = fake_hf_path / "models"
+    models.mkdir(parents=True, exist_ok=True)
+    (models / "fake-model.gguf").write_bytes(b"existing")  # pathname pre-exists
+    tab.repo_edit.setText("o/r")
+    tab.exact_radio.setChecked(True)
+    tab.files_edit.setText("fake-model.gguf")
+    tab._add_to_queue()
+    _spin_until(lambda: service.jobs() and service.job(service.jobs()[-1].id).state == HfJobState.COMPLETED)
+    result = service.job(service.jobs()[-1].id).result
+    assert result.ok
+    assert result.new_files == ()  # replaced, not newly created
+    assert tab.open_folder_button.isEnabled()
+    assert tab.copy_path_button.isEnabled()
+    assert tab.use_as_buttons[HfTarget.MODELS].isEnabled()
+
+
+def test_exact_two_files_never_guesses_candidate(launch_tab):
+    tab, service = launch_tab()
+    tab.repo_edit.setText("o/r")
+    tab.exact_radio.setChecked(True)
+    tab.files_edit.setText("fake-model.gguf, other.gguf")  # fake only creates the first
+    tab._add_to_queue()
+    _spin_until(lambda: service.jobs() and service.job(service.jobs()[-1].id).state == HfJobState.COMPLETED)
+    result = service.job(service.jobs()[-1].id).result
+    assert result.ok and result.new_files == ("fake-model.gguf",)
+    # exactly one new file but TWO were requested: never guess.
+    assert not tab.use_as_buttons[HfTarget.MODELS].isEnabled()
+    assert tab.open_folder_button.isEnabled()
+    assert tab.copy_path_button.isEnabled()
+
+
+def test_custom_folder_enables_open_copy_not_use_as(launch_tab, fake_hf_path):
+    tab, service = launch_tab()
+    tab.destination_combo.setCurrentIndex(tab.destination_combo.findData(HfTarget.CUSTOM.value))
+    tab.custom_local_edit.setText(str(fake_hf_path / "custom"))
+    tab.repo_edit.setText("o/r")
+    tab._add_to_queue()
+    _spin_until(lambda: service.jobs() and service.job(service.jobs()[-1].id).state == HfJobState.COMPLETED)
+    assert tab.open_folder_button.isEnabled()
+    assert tab.copy_path_button.isEnabled()
+    assert not tab.use_as_buttons[HfTarget.MODELS].isEnabled()
+
+
+def test_failed_download_disables_all_post_actions(launch_tab):
+    tab, service = launch_tab()
+    tab.repo_edit.setText("o/fail")
+    tab._add_to_queue()
+    _spin_until(lambda: service.jobs() and service.job(service.jobs()[-1].id).state == HfJobState.FAILED)
+    assert not tab.open_folder_button.isEnabled()
+    assert not tab.copy_path_button.isEnabled()
+    assert not tab.use_as_buttons[HfTarget.MODELS].isEnabled()
+
+
+def test_copy_button_clarifies_folder_path(launch_tab):
+    tab, _service = launch_tab()
+    assert tab.copy_path_button.text() == "Copy Folder Path"

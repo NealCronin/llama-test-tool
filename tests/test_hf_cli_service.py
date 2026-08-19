@@ -189,8 +189,8 @@ def test_build_download_argv_workers_omitted_by_default():
 
 
 def test_build_download_argv_dry_run_has_no_quiet():
-    # huggingface_hub 1.x removed --quiet from `hf download`: the flag errors
-    # on the only CLIs that support --dry-run, so it must never be emitted.
+    # Dry-run needs the normal hf output (the preview parser consumes the
+    # summary/table), so quiet output mode must never be requested.
     argv = build_download_argv(CAPS, HfDownloadRequest(repo_id="o/r"), dry_run=True)
     assert argv[-1] == "--dry-run"
     assert "--quiet" not in argv
@@ -320,7 +320,6 @@ _HELP_WITH_DRY_RUN = (
     "  --force-download\n"
     "  --max-workers MAX_WORKERS\n"
     "  --dry-run\n"
-    "  --quiet\n"
 )
 
 _HELP_NO_DRY_RUN = (
@@ -332,7 +331,6 @@ _HELP_NO_DRY_RUN = (
     "  --local-dir LOCAL_DIR\n"
     "  --force-download\n"
     "  --max-workers MAX_WORKERS\n"
-    "  --quiet\n"
 )
 
 _DRY_RUN_OUTPUT = (
@@ -346,19 +344,40 @@ _DRY_RUN_OUTPUT = (
 )
 
 
-def _write_fake_hf(directory: Path, *, with_dry_run: bool = True, authenticated: bool = True) -> Path:
+_FLAG_FILTERS = {
+    "repo_type": "--repo-type",
+    "revision": "--revision",
+    "include": "--include",
+    "exclude": "--exclude",
+    "cache_dir": "--cache-dir",
+    "local_dir": "--local-dir",
+    "force_download": "--force-download",
+    "dry_run": "--dry-run",
+    "max_workers": "--max-workers",
+}
+
+
+def _write_fake_hf(directory: Path, *, with_dry_run: bool = True, authenticated: bool = True, missing: frozenset[str] = frozenset()) -> Path:
     """Write a fake ``hf`` batch CLI.
 
     The fake models the real CLI contract: ``--dry-run`` is only available
-    when the help advertises it, ``--quiet`` is unrecognized (huggingface_hub
-    1.x removed it entirely), and a dry run never touches the destination.
+    when the help advertises it, and unknown arguments (e.g. ``--quiet``) are
+    rejected with an error exactly like the real CLI does. A dry run never
+    touches the destination. ``missing`` drops the named capability flags
+    (keys of ``_FLAG_FILTERS``) from the help text so capability gating can be
+    tested against a partial CLI.
 
     Uses goto labels instead of nested parenthesized if-blocks: cmd.exe
     silently drops the exit code of ``exit /b N`` when it sits inside a
     block that is itself nested in another block.
     """
     whoami = "echo user:  testuser\r\nexit /b 0" if authenticated else "echo You are not logged in.\r\nexit /b 1"
-    help_block = "\r\n".join(f"echo {line}" for line in (_HELP_WITH_DRY_RUN if with_dry_run else _HELP_NO_DRY_RUN).splitlines())
+    help_lines = [
+        line
+        for line in (_HELP_WITH_DRY_RUN if with_dry_run else _HELP_NO_DRY_RUN).splitlines()
+        if not any(_FLAG_FILTERS[name] in line for name in missing)
+    ]
+    help_block = "\r\n".join(f"echo {line}" for line in help_lines)
     dry_block = "\r\n".join("echo." if not line else f"echo {line}" for line in _DRY_RUN_OUTPUT.splitlines())
     default_download = (
         f"{sys.executable} -c \"import sys; from pathlib import Path; a = sys.argv[1:]; i = a.index('--local-dir'); p = Path(a[i+1]); p.mkdir(parents=True, exist_ok=True); (p / 'fake-model.gguf').write_text('x')\" %*"
@@ -779,6 +798,41 @@ def test_parse_dry_run_summary_without_table_keeps_counts_and_parsed():
     assert report.files == ()
 
 
+def test_parse_dry_run_summary_with_period():
+    text = (
+        "[dry-run] Will download 2 files (out of 3) totalling 1.2 GB.\r\n"
+        "FILE        SIZE\r\n"
+        "config.json  1.1KB\r\n"
+    )
+    report = parse_dry_run(text, 0)
+    assert report.parsed is True
+    assert report.total_files == 3
+    assert report.transfer_files == 2
+    assert report.transfer_text == "1.2 GB"  # trailing period not captured
+
+
+def test_parse_dry_run_summary_without_period():
+    text = (
+        "[dry-run] Will download 2 files (out of 3) totalling 1.2 GB\r\n"
+        "FILE        SIZE\r\n"
+        "config.json  1.1KB\r\n"
+    )
+    report = parse_dry_run(text, 0)
+    assert report.parsed is True
+    assert report.total_files == 3
+    assert report.transfer_files == 2
+    assert report.transfer_text == "1.2 GB"
+
+
+def test_parse_dry_run_singular_file_grammar():
+    text = "[dry-run] Will download 1 file (out of 1) totalling 5.0 MB\n"
+    report = parse_dry_run(text, 0)
+    assert report.parsed is True
+    assert report.total_files == 1
+    assert report.transfer_files == 1
+    assert report.transfer_text == "5.0 MB"
+
+
 def test_parse_dry_run_nonzero_exit_keeps_exit_code():
     report = parse_dry_run("ERROR: dry run failed", 3)
     assert report.exit_code == 3
@@ -809,9 +863,8 @@ def test_fake_hf_rejects_quiet_like_real_1x_cli(fake_hf_path):
     service.preview_finished.connect(reports.append)
     service.preview(HfDownloadRequest(repo_id="o/r"))
     _spin_until(lambda: reports)
-    # The fake mirrors huggingface_hub 1.x, where --quiet is unrecognized and
-    # fails the run. A successful preview therefore proves the argv no longer
-    # carries --quiet (the unexported contract the whole pairing depended on).
+    # The fake rejects unknown arguments such as --quiet. A successful preview
+    # proves the argv no longer carries it — the pairing the old parser relied on.
     assert reports[0].exit_code == 0
     assert reports[0].parsed is True
 

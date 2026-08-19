@@ -108,7 +108,7 @@ def parse_download_help(text: str) -> dict[str, bool]:
 
 
 _DRY_RUN_SUMMARY = re.compile(
-    r"\[dry-run\]\s+Will download\s+(\d+)\s+files?\s+\(out of\s+(\d+)\)\s+totalling\s+(.+?)\.\s*$",
+    r"\[dry-run\]\s+Will download\s+(\d+)\s+files?\s+\(out of\s+(\d+)\)\s+totalling\s+(.+?)\.?\s*$",
     re.MULTILINE,
 )
 
@@ -228,9 +228,9 @@ def build_download_argv(caps: HfCliCapabilities, request: HfDownloadRequest, dry
     if request.max_workers is not None:
         argv += ["--max-workers", str(request.max_workers)]
     if dry_run:
-        # No --quiet: huggingface_hub 1.x removed the flag entirely and rejects
-        # it, so the pair would hard-error on the only CLIs that support
-        # --dry-run. The plain dry-run table keeps the info we parse.
+        # Dry-run needs the normal hf output because the preview parser
+        # consumes the summary/table. Do not suppress it with quiet output
+        # mode.
         argv.append("--dry-run")
     return argv
 def _snapshot(directory: Path) -> set[str]:
