@@ -61,7 +61,18 @@ Common flags are surfaced in a curated list; the complete llama.cpp argument cat
 
 The preview is read-only. **Copy Command** copies a Windows-safe quoted command. **Vertical preview** emits a readable `^`-continued display. The command state—argument order, values, source selections, and model—is saved automatically.
 
-**Test Command** validates the structured command and starts the configured executable through `QProcess`, never through a shell. Output streams to the process console and **Stop** requests clean termination before killing if required. `${PORT}` is substituted with an available local port only for this local execution; the saved command remains unchanged.
+**Test Server** validates the structured command, starts llama-server through `QProcess` (never a shell), then verifies the running process in four stages:
+
+1. **Process** — succeeded only once the process actually emits `started`; start failures report the process error, not a traceback.
+2. **Ready** — polls `GET /health` (~0.5 s) while the model loads; `503`/connection-refused keep polling until the configured readiness timeout (Settings, default 180 s, 10–1800 s).
+3. **API** — reads `GET /v1/models`; requires a non-empty model list and, when `--alias` is configured, confirms the alias is served.
+4. **Inference** — a tiny capability-appropriate probe: `/completion` for generation servers, `/embedding` for embedding-only servers, `/rerank` for reranking servers, and a clear SKIPPED state for modes the verifier does not cover.
+
+The verifier derives the effective host/port/API prefix from the structured command + argument catalog (aliases resolved, `0.0.0.0` verified via loopback, default port 8080, `--api-prefix` honored on every path). `--host` ending in `.sock` or SSL (`--ssl-cert-file` + `--ssl-key-file`) still launch the process but mark the verification as transport-unsupported. An occupied explicit/default port fails before launch so a stale server is never verified. Configured API keys (`--api-key`, `--api-key-file`, or `LLAMA_API_KEY`) are sent as `Authorization: Bearer` and are never shown — the console line masks `--api-key` values.
+
+The summary panel shows each stage live; on success it reports the served model ID, generated text, token counts, throughput, and timings, and the server **keeps running** for manual testing until **Stop** or app close. Failures report the exact failing stage plus the last ~50 lines of real server output. Raw server logs stay in the process console below. `${PORT}` is substituted with an available local port for the run only; the saved command remains unchanged. Stop cancels verification and terminates the process.
+
+The result lives only for the session; run history and comparison are a later phase.
 
 ## Memory Test
 
@@ -75,7 +86,7 @@ Use **Memory Test Options** only to override llama.cpp's normal fit defaults wit
 
 **Benchmark** answers "how fast is this exact configuration?" with the installed `llama-bench` binary. The structured server configuration is translated semantically into llama-bench arguments, including device separators, tensor-split separators, GPU-layer representation, and the polarity differences for KV offload, operation offload, and mmap. The run options dialog sets prompt/generation token counts, batch sizes, repetitions, and a warm-up delay.
 
-The results window shows prompt-processing and generation tokens/sec with standard deviation, backend and device information, the exact translated llama-bench arguments, any skipped server-only arguments, warnings about approximations, and the raw `llama-bench` output. These numbers are llama-bench's standalone measurement of the translation/compute pipeline — they are not llama-server or HTTP throughput.
+The results window shows prompt-processing and generation tokens/sec with standard deviation, backend and device information, the exact translated llama-bench arguments, any skipped server-only arguments, warnings about approximations, and the raw `llama-bench` output. These numbers are llama-bench's standalone measurement of the translation/compute pipeline — they are not llama-server or HTTP throughput. (Test Server's inference probe records one small live request's latency and tokens/s; that is a verification signal, not a serving benchmark.)
 
 ## Templates and speculative decoding
 
@@ -115,4 +126,4 @@ cd llama-test-tool
 python -m pytest -q tests
 ```
 
-Tests cover catalog arities/aliases/enums, rendered argv quoting and `${PORT}`, command import, builder persistence and missing-file restoration, preset dialog prefill and emission (including the Custom MTP draft-KV selection), `hf` CLI discovery/argv construction/queue behavior against a fake `hf`, round-trip YAML add/update/remove preservation, targeted llama-swap subtree writes (presence-aware globals, routing/model validation), backups, and malformed-YAML refusal.
+Tests cover catalog arities/aliases/enums, rendered argv quoting and `${PORT}`, command import, builder persistence and missing-file restoration, preset dialog prefill and emission (including the Custom MTP draft-KV selection), `hf` CLI discovery/argv construction/queue behavior against a fake `hf`, staged server verification against a hermetic fake llama-server (readiness, alias, auth with a sentinel secret, prefix, timing, embedding/rerank/unsupported modes, stop/stale-run safety), round-trip YAML add/update/remove preservation, targeted llama-swap subtree writes (presence-aware globals, routing/model validation), backups, and malformed-YAML refusal.

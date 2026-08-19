@@ -38,6 +38,7 @@ class AppSettings:
     hf_force_download: bool = False
     hf_worker_override: bool = False
     hf_max_workers: int = 8
+    server_ready_timeout: int = 180
 
     @classmethod
     def path(cls) -> Path:

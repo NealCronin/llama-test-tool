@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
-    QSplitter, QTabWidget, QVBoxLayout, QWidget,
+    QSplitter, QSpinBox, QTabWidget, QVBoxLayout, QWidget,
 )
 from app.models.command import Command
 from app.models.hf_download import HfTarget, TARGET_LABELS
@@ -21,6 +21,7 @@ from app.server import SERVER_COMMAND, server_executable_path
 from app.services.hf_cli_service import HfCliService
 from app.services.memory_test_service import MemoryTestService
 from app.services.benchmark_service import BenchmarkService
+from app.services.server_verification_service import ServerVerificationService
 from app.settings import AppSettings
 from app.widgets.command_builder import CommandBuilder
 from app.widgets.config_viewer import ConfigViewer
@@ -90,6 +91,11 @@ class SettingsPage(QWidget):
 
         self.backup_limit = QLineEdit(str(settings.backup_limit))
         form.addRow("Backups retained", self.backup_limit)
+        self.ready_timeout = QSpinBox()
+        self.ready_timeout.setRange(10, 1800)
+        self.ready_timeout.setSuffix(" s")
+        self.ready_timeout.setValue(int(getattr(settings, "server_ready_timeout", 180)))
+        form.addRow("Server readiness timeout", self.ready_timeout)
         save = QPushButton("Save Settings")
         save.clicked.connect(self.save)
         layout.addWidget(save)
@@ -142,6 +148,7 @@ class SettingsPage(QWidget):
         except ValueError:
             self.settings.backup_limit = 10
             self.backup_limit.setText("10")
+        self.settings.server_ready_timeout = self.ready_timeout.value()
         self.settings.save()
         self.window().statusBar().showMessage("Settings saved.", 5_000)
         if isinstance(self.window(), MainWindow):
@@ -179,11 +186,12 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.settings_page, "Settings")
         self.setCentralWidget(self.tabs)
         self.runner = CommandRunner(self)
+        self.verification_service = ServerVerificationService(self.runner, self)
         self.benchmark_service = BenchmarkService(self)
         self.memory_service = MemoryTestService(self)
         self.builder.changed.connect(self.persist_builder)
-        self.builder.test_requested.connect(self.test_command)
-        self.builder.stop_requested.connect(self.runner.stop)
+        self.builder.test_requested.connect(self.test_server)
+        self.builder.stop_requested.connect(self.verification_service.cancel)
         self.builder.memory_test_requested.connect(self.memory_test)
         self.builder.memory_options_requested.connect(self.memory_options)
         self.builder.memory_cancel_requested.connect(self.memory_service.cancel)
@@ -197,6 +205,8 @@ class MainWindow(QMainWindow):
         self.viewer.status.connect(lambda message: self.statusBar().showMessage(message, 5_000))
         self.runner.output.connect(self.console.append)
         self.runner.state_changed.connect(self._process_state)
+        self.verification_service.stage_changed.connect(self.builder.verify_status.handle_stage)
+        self.verification_service.completed.connect(self._verification_complete)
         self.memory_service.state_changed.connect(self._memory_state)
         self.memory_service.completed.connect(self._memory_complete)
         self.benchmark_service.state_changed.connect(self._benchmark_state)
@@ -298,16 +308,34 @@ class MainWindow(QMainWindow):
         self.builder.set_catalog(catalog)
         self.statusBar().showMessage(f"Updated argument catalog with {len(catalog.specs)} flags.", 8_000)
 
-    def test_command(self) -> None:
+    def test_server(self) -> None:
         issues = validate_command(self.builder.command, self.catalog)
         errors = [issue.message for issue in issues if issue.severity == "error"]
         if errors:
-            QMessageBox.warning(self, "Cannot test command", "\n".join(errors))
+            QMessageBox.warning(self, "Cannot test server", "\n".join(errors))
             return
         try:
-            self.runner.start(self.builder.command, LlamaCppInstallationService.active_server(self.settings))
+            self.verification_service.verify(
+                self.builder.command,
+                self.catalog,
+                executable=LlamaCppInstallationService.active_server(self.settings),
+                timeout_seconds=int(getattr(self.settings, "server_ready_timeout", 180)),
+            )
         except RuntimeError as error:
-            QMessageBox.warning(self, "Test command", str(error))
+            QMessageBox.warning(self, "Test Server", str(error))
+
+    def _verification_complete(self, result) -> None:
+        process_running = self.runner.running
+        self.builder.verify_status.show_result(result, process_running)
+        if result.failed_stage:
+            message = f"Verification failed at {result.failed_stage.title()}."
+            if process_running:
+                message += " Server process still running — use Stop."
+            self.statusBar().showMessage(message, 12_000)
+        elif result.verified:
+            self.statusBar().showMessage("Server verified — process still running; Stop to end it.", 12_000)
+        else:
+            self.statusBar().showMessage("Verification incomplete — see panel.", 8_000)
 
     def _process_state(self, state: str) -> None:
         self.builder.set_running(state in {"Running", "Stopping"})
@@ -479,8 +507,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         self.settings.window_geometry = bytes(self.saveGeometry()).hex()
         self.persist_builder()
-        if self.runner.running:
-            self.runner.stop()
+        self.verification_service.cancel()
         if self.memory_service.running:
             self.memory_service.cancel()
         if self.benchmark_service.running:

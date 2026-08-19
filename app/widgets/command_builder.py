@@ -17,6 +17,7 @@ from app.server import SERVER_COMMAND
 from app.settings import AppSettings
 from app.widgets.argument_row import ArgumentRow
 from app.widgets.searchable_flag_picker import SearchableFlagPicker
+from app.widgets.server_verify_status import ServerVerifyStatusPanel
 
 
 class CommandBuilder(QWidget):
@@ -75,7 +76,7 @@ class CommandBuilder(QWidget):
         self.memory_options = QPushButton("Memory Test Options")
         self.memory_cancel = QPushButton("Cancel Memory Test")
         self.memory_cancel.setEnabled(False)
-        self.test = QPushButton("Test Command")
+        self.test = QPushButton("Test Server")
         self.stop = QPushButton("Stop")
         self.stop.setEnabled(False)
         self.add_swap = QPushButton("Add to llama-swap")
@@ -83,6 +84,8 @@ class CommandBuilder(QWidget):
             controls.addWidget(button)
         controls.addStretch()
         layout.addLayout(controls)
+        self.verify_status = ServerVerifyStatusPanel(self)
+        layout.addWidget(self.verify_status)
         self.preview = QLabel()
         self.preview.setTextInteractionFlags(self.preview.textInteractionFlags() | self.preview.textInteractionFlags().TextSelectableByMouse)
         self.preview.setWordWrap(True)
