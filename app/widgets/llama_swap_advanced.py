@@ -248,7 +248,7 @@ class _MultiItemMixin:
 
 
 class GeneralSettingsEditor(_SectionEditor):
-    MANAGED = ("healthCheckTimeout", "globalTTL", "unloadTimeout", "startPort", "sendLoadingState", "includeAliasesInList")
+    MANAGED = ("healthCheckTimeout", "globalTTL", "unloadTimeout", "startPort", "sendLoadingState", "includeAliasesInList", "logRequests")
 
     def __init__(self, parent=None) -> None:
         super().__init__(None, parent)
@@ -259,6 +259,7 @@ class GeneralSettingsEditor(_SectionEditor):
         self.start_port = OptionalInt(5800)
         self.send_loading = OptionalBool(False)
         self.include_aliases = OptionalBool(False)
+        self.log_requests = OptionalBool(False)
         form = QFormLayout()
         form.addRow("Health check timeout (seconds)", self.health_check)
         form.addRow("Global TTL (seconds)", self.global_ttl)
@@ -266,10 +267,12 @@ class GeneralSettingsEditor(_SectionEditor):
         form.addRow("Start port", self.start_port)
         form.addRow("Send loading state", self.send_loading)
         form.addRow("Include aliases in list", self.include_aliases)
+        form.addRow("Log requests", self.log_requests)
         self.body.addLayout(form)
         self._widgets = {
             "healthCheckTimeout": self.health_check, "globalTTL": self.global_ttl, "unloadTimeout": self.unload,
             "startPort": self.start_port, "sendLoadingState": self.send_loading, "includeAliasesInList": self.include_aliases,
+            "logRequests": self.log_requests,
         }
 
     def _load(self, data) -> None:
@@ -909,9 +912,9 @@ class RoutingEditor(_MultiItemMixin, _SectionEditor):
 
         self.matrix_box = QGroupBox("Matrix routing", router_group)
         matrix_layout = QVBoxLayout(self.matrix_box)
-        self.matrix_vars = KeyValueTableEditor(("Var (a–h)", "Model ID"), self.matrix_box)
-        self.matrix_costs = KeyValueTableEditor(("Var (a–h)", "Eviction cost (integer)"), self.matrix_box)
-        self.matrix_sets = StructuredYamlEditor("Sets: list of {name, expr} or map name → expression", self.matrix_box)
+        self.matrix_vars = KeyValueTableEditor(("Var (name)", "Model ID"), self.matrix_box)
+        self.matrix_costs = KeyValueTableEditor(("Var or model ID", "Eviction cost (integer)"), self.matrix_box)
+        self.matrix_sets = StructuredYamlEditor("Sets: mapping of set name → expression (operators & | () and +ref)", self.matrix_box)
         matrix_layout.addWidget(self.matrix_vars)
         matrix_layout.addWidget(self.matrix_costs)
         matrix_layout.addWidget(self.matrix_sets)
@@ -1071,11 +1074,8 @@ class RoutingEditor(_MultiItemMixin, _SectionEditor):
             self._multi_stash()
             self._multi_apply_map(routing, "groups", path=("router", "settings"))
             router["use"] = "group"
-            settings = router.get("settings")
-            if isinstance(settings, (CommentedMap, dict)):
-                settings.pop("matrix", None)
-                if not settings:
-                    router.pop("settings", None)
+            # The inactive engine's settings (if any) are preserved untouched;
+            # `use` selects the active one at runtime.
         elif use == "matrix":
             matrix = CommentedMap()
             vars_rows = self.matrix_vars.items()
@@ -1083,7 +1083,7 @@ class RoutingEditor(_MultiItemMixin, _SectionEditor):
                 matrix_vars = CommentedMap()
                 for var, model in vars_rows:
                     if not var.strip():
-                        raise ValueError("Matrix vars need a variable name (a–h).")
+                        raise ValueError("Matrix vars need a variable name.")
                     matrix_vars[var.strip()] = model.strip()
                 matrix["vars"] = matrix_vars
             cost_rows = self.matrix_costs.items()
@@ -1091,23 +1091,24 @@ class RoutingEditor(_MultiItemMixin, _SectionEditor):
                 costs = CommentedMap()
                 for var, text in cost_rows:
                     if not var.strip():
-                        raise ValueError("Matrix eviction costs need a variable name (a–h).")
+                        raise ValueError("Matrix eviction costs need a variable or model ID.")
                     try:
                         costs[var.strip()] = int(text)
                     except ValueError as error:
                         raise ValueError(f"Eviction cost for {var!r} must be an integer.") from error
                 matrix["evict_costs"] = costs
             sets = self.matrix_sets.object()
-            if sets:
-                matrix["sets"] = sets
-            if not matrix:
-                raise ValueError("Matrix routing needs vars, evict_costs, or sets.")
+            if "vars" not in matrix:
+                raise ValueError("Matrix routing needs at least one var (short name → model ID).")
+            if not sets:
+                raise ValueError("Matrix routing needs at least one set (name → expression).")
+            matrix["sets"] = sets
             settings = router.get("settings")
             if not isinstance(settings, (CommentedMap, dict)):
                 settings = CommentedMap()
                 router["settings"] = settings
             settings["matrix"] = matrix
-            settings.pop("groups", None)
+            # The inactive engine's settings (if any) are preserved untouched.
             router["use"] = "matrix"
         else:
             router.pop("use", None)

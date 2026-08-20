@@ -3,6 +3,13 @@
     "$id": "llama-swap-config-schema.json",
     "title": "llama-swap configuration",
     "description": "Configuration file for llama-swap",
+    "x-source": {
+        "repository": "https://github.com/mostlygeek/llama-swap",
+        "upstream_commit": "23c28febf1ccf3940aa01c077e46ff633da2a279",
+        "upstream_path": "config-schema.json",
+        "snapshot_date": "2026-08-20",
+        "note": "Unmodified snapshot of upstream config-schema.json. x-source is an annotation ignored by JSON Schema draft-07."
+    },
     "type": "object",
     "required": [
         "models"

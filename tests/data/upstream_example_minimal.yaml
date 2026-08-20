@@ -1,0 +1,121 @@
+# Representative upstream-shaped llama-swap configuration.
+#
+# Derived (trimmed) from llama-swap's config.example.yaml at the upstream
+# snapshot commit referenced by data/llama_swap_config_schema.json
+# (x-source.upstream_commit) and app/services/llama_swap_service.py
+# (UPSTREAM_* constants). Exercises: every current global key the app edits,
+# model-level fields (macros, env, proxy, checkEndpoint, ttl, unloadTimeout,
+# cmdStop, compat, useModelName, filters, metadata, timeouts,
+# concurrencyLimit, aliases), an unknown model-level field that must survive
+# round trips, hooks, routing with BOTH groups and matrix under
+# routing.router.settings (coexistence is valid upstream; `use` selects the
+# active engine), a spillover selector whose targets share a swap: false
+# group, a fifo scheduler priority entry that references an alias, and a peer.
+healthCheckTimeout: 500
+logLevel: info
+logRequests: true
+logTimeFormat: ""
+logToStdout: "proxy"
+metricsMaxInMemory: 1000
+captureBuffer: 15
+ui:
+  activity:
+    session_id: ["X-Session-ID"]
+performance:
+  disabled: false
+  every: 15s
+startPort: 10001
+sendLoadingState: true
+includeAliasesInList: false
+globalTTL: 0
+unloadTimeout: 10
+store:
+  path: "activity.sqlite"
+macros:
+  llama-bin: "llama-server"
+apiKeys:
+  - test-key-1
+upstream:
+  ignorePaths:
+    - "/admin"
+profiles:
+  fast:
+    description: "Short-context pinning"
+    pins:
+      ctx-size: "8192"
+selectors:
+  llama:
+    strategy: spillover
+    targets: ["alpha-model", "beta-model"]
+    settings:
+      spillover: 4
+models:
+  "alpha-model":
+    macros:
+      default_ctx: "16384"
+    cmd: |
+      ${llama-bin}
+      --model models/alpha.gguf
+      --ctx-size ${default_ctx}
+      --port ${PORT}
+    name: "Alpha 8B"
+    description: "Small test model"
+    env:
+      - "CUDA_VISIBLE_DEVICES=0"
+    proxy: "http://127.0.0.1:${PORT}"
+    checkEndpoint: /health
+    ttl: 60
+    unloadTimeout: 10
+    cmdStop: "docker stop ${MODEL_ID}"
+    compat:
+      ignoreWebsockets: true
+    useModelName: "vendor/alpha"
+    filters:
+      stripParams: "temperature, top_p"
+      setParams:
+        temperature: 0.7
+    metadata:
+      vendor: "test"
+    timeouts:
+      connect: 30
+      idleConn: 90
+    concurrencyLimit: 4
+    aliases:
+      - "alpha"
+    modelNotes: "unknown field that must survive round trips"
+  "beta-model":
+    cmd: |
+      ${llama-bin}
+      --model models/beta.gguf
+      --port ${PORT}
+    name: "Beta 70B"
+hooks:
+  on_startup:
+    preload:
+      - "beta-model"
+routing:
+  router:
+    use: group
+    settings:
+      groups:
+        swapgroup:
+          swap: false
+          members: ["alpha-model", "beta-model"]
+      matrix:
+        vars:
+          a: "alpha-model"
+          b: "beta-model"
+        evict_costs:
+          a: 1
+        sets:
+          small: "a & b"
+  scheduler:
+    use: fifo
+    settings:
+      fifo:
+        priority:
+          alpha: 1
+peers:
+  example-peer:
+    proxy: "http://127.0.0.1:4000"
+    models: ["beta-model"]
