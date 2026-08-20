@@ -88,7 +88,8 @@ The editors target llama-swap as of the upstream commit recorded in `app/service
 The **llama-swap Config** tab is organized as:
 
 - **Models** — search `models:` entries by ID or name; shows model ID, display name, command, detected model path, and missing-file status. Load a visual-builder-compatible command into the builder, save only the selected entry's `cmd`, edit metadata and the current upstream model-level settings (TTL/unload, stop command, proxy, environment, metadata, macros, filters, timeouts, compat, concurrency limit, send loading state), duplicate, or remove an entry after confirmation. Imported commands with unsupported flags, malformed quoting, or shell syntax stay in clearly labeled **Raw Command Mode** instead of being rewritten unsafely.
-- **General, Logging, Activity / Performance, Security, Macros, Hooks, Upstream, Profiles, Selectors, Routing, Peers** — targeted editors for the rest of the configuration.
+- **General, Logging, Profiles** — targeted editors for the remaining common settings.
+- **Advanced** — a nested tab holding the eight less-common sections: **Activity / Performance, Security, Macros, Hooks, Upstream, Selectors, Routing, Peers**, each unchanged from its former top-level tab.
 
 Every setting is **presence-aware**: an absent key, an explicitly configured key, and an effective default are shown and handled differently. Displaying a default never writes it; **Reset to Default** removes the key so llama-swap applies its own default, rather than writing the current default value. Unknown fields at any level are surfaced, and a failed validation leaves the file untouched.
 

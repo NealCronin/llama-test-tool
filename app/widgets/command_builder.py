@@ -142,7 +142,8 @@ class CommandBuilder(QWidget):
             spacer = self.spacer_rows.pop()
             self.arguments_layout.removeWidget(spacer)
             spacer.deleteLater()
-        spacers = {boundary for boundary in self.settings.builder_spacers if 1 <= boundary <= len(self.command.arguments) - 1}
+        self._normalize_spacers()
+        spacers = set(self.settings.builder_spacers)
         for position, argument in enumerate(self.command.arguments, start=1):
             spec = self.catalog.find(argument.flag)
             if spec is None:
@@ -219,6 +220,13 @@ class CommandBuilder(QWidget):
             return
         self.command.arguments[index], self.command.arguments[target] = self.command.arguments[target], self.command.arguments[index]
         self.rebuild()
+
+    def _normalize_spacers(self) -> None:
+        """Permanently prune persisted spacer boundaries the current command can no longer host."""
+        valid = len(self.command.arguments) - 1
+        pruned = sorted({boundary for boundary in self.settings.builder_spacers if 1 <= boundary <= valid})
+        if pruned != self.settings.builder_spacers:
+            self.settings.builder_spacers = pruned
 
     def add_spacer(self) -> None:
         spacers = set(self.settings.builder_spacers)

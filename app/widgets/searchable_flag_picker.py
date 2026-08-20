@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QRect, QSize, Qt
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QToolButton, QVBoxLayout, QWidget,
 )
@@ -10,13 +10,14 @@ from app.services.flag_catalog import FlagCatalog
 
 
 class _FlagRow(QWidget):
-    """One picker row: a pin star button plus the flag name, parameter grammar, and description."""
+    """One picker row: a pin star button, a bold flag/grammar line, and a wrapped description line."""
 
-    def __init__(self, spec: FlagSpec, flag: str, pinned: bool, on_pin) -> None:
+    def __init__(self, spec: FlagSpec, flag: str, pinned: bool, on_pin, width: int) -> None:
         super().__init__()
+        self._width = width
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        layout.setContentsMargins(6, 5, 8, 5)
+        layout.setSpacing(8)
         self.star = QToolButton()
         self.star.setCheckable(True)
         self.star.setChecked(pinned)
@@ -24,11 +25,27 @@ class _FlagRow(QWidget):
         self.star.setFixedSize(20, 20)
         self._update_star(spec, pinned)
         self.star.clicked.connect(lambda checked: on_pin(spec.canonical_name, checked))
-        suffix = " ".join(spec.parameter_names)
-        label = QLabel(f"{flag} {suffix}\n{spec.description}".strip())
-        label.setToolTip(spec.description)
-        layout.addWidget(self.star)
-        layout.addWidget(label, 1)
+        text = QVBoxLayout()
+        text.setContentsMargins(0, 0, 0, 0)
+        text.setSpacing(2)
+        self.flag_label = QLabel(f"{flag} {' '.join(spec.parameter_names)}".strip())
+        flag_font = self.flag_label.font()
+        flag_font.setBold(True)
+        self.flag_label.setFont(flag_font)
+        self.description_label = QLabel(spec.description)
+        self.description_label.setWordWrap(True)
+        self.description_label.setStyleSheet("color: palette(mid);")
+        text.addWidget(self.flag_label)
+        text.addWidget(self.description_label)
+        layout.addWidget(self.star, 0, Qt.AlignmentFlag.AlignTop)
+        layout.addLayout(text, 1)
+
+    def sizeHint(self) -> QSize:
+        available = max(10, self._width - self.star.width() - 8 - 14)
+        metrics = self.description_label.fontMetrics()
+        description_height = metrics.boundingRect(QRect(0, 0, available, 10_000), Qt.TextFlag.TextWordWrap, self.description_label.text()).height()
+        height = self.flag_label.sizeHint().height() + 2 + description_height + 10
+        return QSize(max(self._width, 10), max(height, 34))
 
     def _update_star(self, spec: FlagSpec, pinned: bool) -> None:
         self.star.setText("★" if pinned else "☆")
@@ -50,10 +67,10 @@ class SearchableFlagPicker(QDialog):
         layout = QVBoxLayout(self)
         self.search = QLineEdit(placeholderText="Search flag names, aliases, or descriptions…")
         self.results = QListWidget()
+        self.results.viewport().installEventFilter(self)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
         layout.addWidget(self.search)
         layout.addWidget(self.results)
-        layout.addWidget(buttons)
         self.search.textChanged.connect(self.populate)
         self.results.itemDoubleClicked.connect(lambda _: self.accept())
         self.results.currentItemChanged.connect(lambda *_: buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(self.results.currentItem() is not None))
@@ -63,18 +80,18 @@ class SearchableFlagPicker(QDialog):
         self.populate()
 
     def _rank(self, spec: FlagSpec, flag: str, query: str, pin_order: dict[str, int]) -> tuple[int, int, int, str]:
-        """Pinned flags outrank unpinned ones; within each class exact matches beat prefixes,
-        prefixes beat weaker name/description matches; pin order breaks ties, then flag name."""
+        """Pinned flags outrank unpinned ones; within each class, exact matches on any
+        documented alias or the canonical name beat prefix matches, which beat weaker
+        name/description matches; pin order then flag name break ties."""
         pin_class = 0 if spec.canonical_name in pin_order else 1
         folded = query.casefold()
         if not query:
             kind = 1
-        elif flag.casefold() == folded or spec.canonical_name == query:
-            kind = 0
-        elif flag.casefold().startswith(folded) or spec.canonical_name.casefold().startswith(folded):
-            kind = 1
         else:
-            kind = 2
+            names = (spec.canonical_name, *spec.aliases, flag)
+            exact = any(name.casefold() == folded for name in names)
+            prefix = any(name.casefold().startswith(folded) for name in names)
+            kind = 0 if exact else (1 if prefix else 2)
         return (pin_class, kind, pin_order.get(spec.canonical_name, 0), flag)
 
     def populate(self) -> None:
@@ -87,18 +104,37 @@ class SearchableFlagPicker(QDialog):
             flags = (spec.preferred_name, *spec.negative_aliases) if spec.negative_aliases else (spec.preferred_name,)
             entries.extend((spec, flag) for flag in dict.fromkeys(flags))
         entries.sort(key=lambda entry: self._rank(entry[0], entry[1], query, pin_order))
-        for spec, flag in entries[:100]:
+        width = self._row_width()
+        for spec, flag in entries:
             item = QListWidgetItem(f"{flag} {' '.join(spec.parameter_names)}".strip())
             item.setData(Qt.ItemDataRole.UserRole, spec)
             item.setData(Qt.ItemDataRole.UserRole + 1, flag)
-            row = _FlagRow(spec, flag, spec.canonical_name in pin_order, self._toggle_pin)
-            item.setSizeHint(row.sizeHint())
+            row = _FlagRow(spec, flag, spec.canonical_name in pin_order, self._toggle_pin, width)
             self.results.addItem(item)
             self.results.setItemWidget(item, row)
+            item.setSizeHint(row.sizeHint())
             if flag == current:
                 self.results.setCurrentItem(item)
         if self.results.count() and self.results.currentItem() is None:
             self.results.setCurrentRow(0)
+
+    def _row_width(self) -> int:
+        return max(self.results.viewport().width(), self.width() - 40, 320)
+
+    def _rows_resized(self) -> None:
+        width = self._row_width()
+        for index in range(self.results.count()):
+            item = self.results.item(index)
+            row = self.results.itemWidget(item)
+            if row is not None:
+                row._width = width
+                item.setSizeHint(row.sizeHint())
+        self.results.resizeRowsToContents()
+
+    def eventFilter(self, watched, event) -> bool:
+        if watched is self.results.viewport() and event.type() == QEvent.Type.Resize:
+            self._rows_resized()
+        return super().eventFilter(watched, event)
 
     def _toggle_pin(self, canonical_name: str, pinned: bool) -> None:
         if pinned and canonical_name not in self.pinned_flags:

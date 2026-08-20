@@ -5,7 +5,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QApplication, QScrollArea, QSplitter
+from PySide6.QtWidgets import QApplication, QScrollArea, QSplitter, QTabWidget
 from ruamel.yaml import YAML
 
 from app.settings import AppSettings
@@ -168,4 +168,44 @@ def test_models_right_pane_is_scrollable(tmp_path):
     for widget in (viewer.raw, viewer.ttl, viewer.caps_context):
         assert under(widget, content)
     assert under(viewer.list, splitter.widget(0))
+    viewer.close()
+
+
+def test_top_level_navigation_is_reduced_to_five_tabs_in_order(tmp_path):
+    _, viewer = make_viewer(tmp_path)
+    assert [viewer.tabs.tabText(i) for i in range(viewer.tabs.count())] == [
+        "Models", "General", "Logging", "Profiles", "Advanced",
+    ]
+    assert viewer.tabs.currentIndex() == 0  # Models is the default page
+
+
+def test_advanced_tab_contains_all_less_common_sections_with_same_editors(tmp_path):
+    _, viewer = make_viewer(tmp_path)
+    advanced = viewer.tabs.widget(4)
+    assert isinstance(advanced, QTabWidget)
+    assert [advanced.tabText(i) for i in range(advanced.count())] == [
+        "Activity / Performance", "Security", "Macros", "Hooks", "Upstream", "Selectors", "Routing", "Peers",
+    ]
+    editors = (
+        viewer.activity_editor, viewer.security_editor, viewer.macros_editor, viewer.hooks_editor,
+        viewer.upstream_editor, viewer.selectors_editor, viewer.routing_editor, viewer.peers_editor,
+    )
+    for index, editor in enumerate(editors):
+        assert advanced.widget(index) is editor
+    assert viewer.tabs.widget(1) is viewer.general_editor
+    assert viewer.tabs.widget(2) is viewer.logging_editor
+    assert viewer.tabs.widget(3) is viewer.profiles_editor
+
+
+def test_regrouping_editors_does_not_mutate_configuration(tmp_path):
+    config, viewer = make_viewer(tmp_path)
+    original = config.read_text(encoding="utf-8")
+    editors = (
+        viewer.general_editor, viewer.logging_editor, viewer.profiles_editor, viewer.activity_editor,
+        viewer.security_editor, viewer.macros_editor, viewer.hooks_editor, viewer.upstream_editor,
+        viewer.selectors_editor, viewer.routing_editor, viewer.peers_editor,
+    )
+    for editor in editors:
+        editor.apply(editor._service)
+    assert config.read_text(encoding="utf-8") == original
     viewer.close()

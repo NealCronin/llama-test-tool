@@ -5,8 +5,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QLabel, QMessageBox
-
+from PySide6.QtWidgets import QApplication, QMessageBox, QToolButton
 from app.models.command import Command
 from app.services.flag_catalog import FlagCatalog
 from app.server import SERVER_COMMAND
@@ -100,11 +99,14 @@ def test_double_click_selects_negative_boolean_variant():
 
 def test_picker_rows_show_flag_descriptions():
     picker = SearchableFlagPicker(catalog())
-    label = picker.results.itemWidget(item_for(picker, "-c")).findChild(QLabel)
-    assert "context" in label.text()
-    assert label.toolTip()
+    row = picker.results.itemWidget(item_for(picker, "-c"))
+    assert row.flag_label.text() == "-c N"
+    assert "context" in row.description_label.text()
+    assert row.description_label.parentWidget() is row
     for index in range(picker.results.count()):
-        assert picker.results.itemWidget(picker.results.item(index)).findChild(QLabel).text()
+        entry = picker.results.itemWidget(picker.results.item(index))
+        assert entry.flag_label.text()
+        assert entry.description_label.parentWidget() is entry
 
 
 def test_builder_persists_pin_changes_even_when_picker_cancels(monkeypatch):
@@ -230,13 +232,12 @@ def test_spacers_restore_for_saved_command():
     assert len(restored.spacer_rows) == 1
 
 
-def test_out_of_range_spacer_values_are_ignored():
-    settings = AppSettings(builder_spacers=[-1, 0, 99, 1])
-    widget = builder(settings)
-    widget.set_argument("--ctx-size", ["4096"])
-    widget.set_argument("--flash-attn", ["on"])
+def test_out_of_range_spacer_values_are_pruned_from_settings():
+    settings, widget = three_arg_widget()
+    settings.builder_spacers = [2, 2, 1, 0, 99]
     widget.rebuild()
-    assert len(widget.spacer_rows) == 1
+    assert settings.builder_spacers == [1, 2]
+    assert len(widget.spacer_rows) == 2
     assert [argument.flag for argument in widget.command.arguments] == ["-m", "-c", "-fa"]
 
 
@@ -247,13 +248,28 @@ def test_spacer_button_requires_two_arguments():
     assert widget.spacer_button.isEnabled()
 
 
-def test_remove_row_drops_spacer_that_left_no_valid_boundary():
+def test_remove_row_prunes_stale_spacer_and_it_never_returns():
     settings, widget = three_arg_widget()
     widget.add_spacer()
+    assert settings.builder_spacers == [2]
     widget.remove_row(widget.rows[1])
     assert [argument.flag for argument in widget.command.arguments] == ["-m", "-fa"]
+    assert settings.builder_spacers == []
     assert len(widget.spacer_rows) == 0
-    assert widget.command.argv() == [SERVER_COMMAND, "-m", "", "-fa", "on"]
+    widget.set_argument("--port", ["8080"])
+    assert settings.builder_spacers == []
+    assert len(widget.spacer_rows) == 0
+
+
+def test_valid_spacer_survives_reorder_and_duplicates_normalize():
+    settings, widget = three_arg_widget()
+    settings.builder_spacers = [2, 2, 1]
+    widget.rebuild()
+    assert settings.builder_spacers == [1, 2]
+    assert len(widget.spacer_rows) == 2
+    widget.move_row(widget.rows[2], -1)
+    assert settings.builder_spacers == [1, 2]
+    assert len(widget.spacer_rows) == 2
 
 
 def test_clear_command_removes_spacers_but_keeps_pins(monkeypatch):
@@ -308,3 +324,77 @@ def test_settings_roundtrip_normalizes_pins_spacers_and_legacy_keys(tmp_path, mo
     assert reloaded["pinned_flags"] == ["--flash-attn", "--port"]
     assert reloaded["builder_spacers"] == [2, 1]
     assert "picker_show_advanced" not in reloaded
+
+
+def test_picker_row_uses_separate_flag_and_description_labels():
+    picker = SearchableFlagPicker(catalog())
+    row = picker.results.itemWidget(item_for(picker, "-c"))
+    assert isinstance(row.star, QToolButton)
+    assert row.flag_label is not row.description_label
+    assert row.flag_label.text() == "-c N"
+    assert row.description_label.text() == "context"
+    assert row.flag_label.font().bold()
+    assert row.description_label.wordWrap()
+    assert row.star.accessibleName() == "Pin --ctx-size"
+    assert row.star.text() == "☆"
+
+
+def test_long_description_grows_row_and_wraps_without_clipping():
+    long_description = " ".join(["word"] * 80)
+    extended = FlagCatalog.parse_readme(CATALOG_MARKDOWN + f"| `-x, --experimental-long-flag N` | {long_description} |\n")
+    picker = SearchableFlagPicker(extended)
+    short = picker.results.itemWidget(item_for(picker, "-c"))
+    long_row = picker.results.itemWidget(item_for(picker, "--experimental-long-flag"))
+    assert long_row.sizeHint().height() > short.sizeHint().height()
+    assert long_row.description_label.wordWrap()
+    # the item size hint tracks the row, so the list reserves real height for the wrapped text
+    item = item_for(picker, "--experimental-long-flag")
+    assert item.sizeHint().height() == long_row.sizeHint().height()
+
+
+def test_picker_shows_every_result_beyond_one_hundred_and_pins_late_results():
+    lines = [f"| `--alpha-{i:03d} N` | flag number {i:03d} |" for i in range(150)]
+    big = FlagCatalog.parse_readme("\n".join(lines))
+    picker = SearchableFlagPicker(big)
+    assert picker.results.count() == 150
+    flags = {picker.results.item(index).data(Qt.ItemDataRole.UserRole + 1) for index in range(picker.results.count())}
+    assert "--alpha-149" in flags
+    late = next(picker.results.item(index) for index in range(150) if picker.results.item(index).data(Qt.ItemDataRole.UserRole + 1) == "--alpha-149")
+    picker.results.itemWidget(late).star.click()
+    assert picker.pinned_flags == ["--alpha-149"]
+    assert picker.results.item(0).data(Qt.ItemDataRole.UserRole + 1) == "--alpha-149"
+
+
+def test_alias_ranking_treats_all_documented_spellings_as_name_matches():
+    spec_ctx = catalog().find("--ctx-size")
+    spec_perf = catalog().find("--perf")
+    picker = SearchableFlagPicker(catalog())
+    pin_order: dict[str, int] = {}
+    assert picker._rank(spec_ctx, "-c", "-c", pin_order)[1] == 0  # exact preferred alias
+    assert picker._rank(spec_ctx, "--ctx-size", "--ctx-size", pin_order)[1] == 0  # exact canonical name
+    assert picker._rank(spec_perf, "--no-perf", "--no-perf", pin_order)[1] == 0  # exact negative alias
+    assert picker._rank(spec_perf, "--perf", "--perf", pin_order)[1] == 0  # exact preferred name
+    assert picker._rank(spec_ctx, "-c", "--ctx", pin_order)[1] == 1  # prefix of canonical name
+    assert picker._rank(spec_perf, "--perf", "--zzz", pin_order)[1] == 2  # description-only match
+    unpinned = picker._rank(spec_perf, "--perf", "--perf", pin_order)[0]
+    pinned = picker._rank(spec_perf, "--perf", "--perf", {"--perf": 0})[0]
+    assert pinned == 0 and unpinned == 1  # pinned class outranks equivalent unpinned exact match
+
+
+def test_alias_ranking_orders_search_results_and_pins_outrank_query_strength():
+    markdown = (
+        "| `-c, --ctx-size N` | context |\n"
+        "| `--cache-type-k TYPE` | KV cache data type for K |\n"
+        "| `--cache-type-v TYPE` | KV cache data type for V |\n"
+    )
+    spec_catalog = FlagCatalog.parse_readme(markdown)
+
+    def search(query: str, pins: list[str] | None = None) -> list[str]:
+        picker = SearchableFlagPicker(spec_catalog, pins or [])
+        picker.search.setText(query)
+        return picker_flags(picker)
+
+    assert search("-c") == ["-c", "--cache-type-k", "--cache-type-v"]  # exact alias first
+    assert search("--cache-type-k") == ["--cache-type-k"]  # exact canonical name
+    assert search("cache-type") == ["--cache-type-k", "--cache-type-v"]  # prefix name matches
+    assert search("-c", ["--cache-type-k"]) == ["--cache-type-k", "-c", "--cache-type-v"]  # pinned beats exact

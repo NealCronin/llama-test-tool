@@ -224,21 +224,23 @@ class ConfigViewer(QWidget):
         self.selectors_editor = SelectorsEditor()
         self.routing_editor = RoutingEditor()
         self.peers_editor = PeersEditor()
-        for editor, title in (
-            (self.general_editor, "General"),
-            (self.logging_editor, "Logging"),
-            (self.activity_editor, "Activity / Performance"),
-            (self.security_editor, "Security"),
-            (self.macros_editor, "Macros"),
-            (self.hooks_editor, "Hooks"),
-            (self.upstream_editor, "Upstream"),
-            (self.profiles_editor, "Profiles"),
-            (self.selectors_editor, "Selectors"),
-            (self.routing_editor, "Routing"),
-            (self.peers_editor, "Peers"),
+        self.advanced_tabs = QTabWidget()
+        for editor, title, target in (
+            (self.general_editor, "General", self.tabs),
+            (self.logging_editor, "Logging", self.tabs),
+            (self.activity_editor, "Activity / Performance", self.advanced_tabs),
+            (self.security_editor, "Security", self.advanced_tabs),
+            (self.macros_editor, "Macros", self.advanced_tabs),
+            (self.hooks_editor, "Hooks", self.advanced_tabs),
+            (self.upstream_editor, "Upstream", self.advanced_tabs),
+            (self.profiles_editor, "Profiles", self.tabs),
+            (self.selectors_editor, "Selectors", self.advanced_tabs),
+            (self.routing_editor, "Routing", self.advanced_tabs),
+            (self.peers_editor, "Peers", self.advanced_tabs),
         ):
             editor.saved.connect(self._editor_saved)
-            self.tabs.addTab(editor, title)
+            target.addTab(editor, title)
+        self.tabs.addTab(self.advanced_tabs, "Advanced")
 
         self._set_actions_enabled(False)
         self.refresh()
