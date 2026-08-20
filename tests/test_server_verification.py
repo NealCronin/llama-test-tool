@@ -23,7 +23,7 @@ from app.services.command_runner import CommandRunner
 from app.services.flag_catalog import FlagCatalog
 from app.services.server_verification_service import ServerVerificationService, resolve_api_keys
 
-from test_hf_cli_service import _spin_until
+from qt_utils import _spin_until
 
 SENTINEL = "sv_SUPERSECRET_9f8e7d6c5b4a3210"
 

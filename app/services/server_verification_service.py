@@ -27,7 +27,6 @@ from app.models.server_verification import (
 )
 from app.services.command_runner import CommandRunner, resolve_server_context
 from app.services.flag_catalog import FlagCatalog
-from app.services.hf_cli_service import redact_secrets
 
 POLL_INTERVAL_MS = 500
 HTTP_TIMEOUT_MS = 10_000
@@ -282,7 +281,7 @@ class ServerVerificationService(QObject):
             handler(generation, status, error, data)
 
     def _redact(self, text: str) -> str:
-        return mask_secrets(redact_secrets(text), self._keys)
+        return mask_secrets(text, self._keys)
 
     def _emit_stage(self, stage: str, status: str, detail: str) -> None:
         index = {"process": 0, "ready": 1, "api": 2, "inference": 3}.get(stage, 0)

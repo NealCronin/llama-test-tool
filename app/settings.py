@@ -31,13 +31,6 @@ class AppSettings:
     vertical_preview: bool = False
     backup_limit: int = 10
     last_command: dict[str, Any] = field(default_factory=dict)
-    hf_destination: str = "models"
-    hf_repo_type: str = "model"
-    hf_custom_local_dir: str = ""
-    hf_custom_cache_dir: str = ""
-    hf_force_download: bool = False
-    hf_worker_override: bool = False
-    hf_max_workers: int = 8
     server_ready_timeout: int = 180
 
     @classmethod

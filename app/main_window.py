@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QSplitter, QSpinBox, QTabWidget, QVBoxLayout, QWidget,
 )
 from app.models.command import Command
-from app.models.hf_download import HfTarget, TARGET_LABELS
 from app.models.command import CommandArgument
 from app.services.command_parser import parse_command
 from app.services.command_runner import CommandRunner
@@ -18,14 +17,12 @@ from app.services.llama_swap_service import DuplicateModelError, LlamaSwapError,
 from app.services.validation import validate_command
 from app.services.llama_cpp_installation import LlamaCppInstallationService
 from app.server import SERVER_COMMAND, server_executable_path
-from app.services.hf_cli_service import HfCliService
 from app.services.memory_test_service import MemoryTestService
 from app.services.benchmark_service import BenchmarkService
 from app.services.server_verification_service import ServerVerificationService
 from app.settings import AppSettings
 from app.widgets.command_builder import CommandBuilder
 from app.widgets.config_viewer import ConfigViewer
-from app.widgets.hf_download_tab import HfDownloadTab
 from app.widgets.output_console import OutputConsole
 from app.widgets.memory_options import MemoryTestOptionsDialog
 from app.widgets.memory_results import MemoryResultsDialog
@@ -33,14 +30,6 @@ from app.widgets.benchmark_options import BenchmarkOptionsDialog
 from app.widgets.benchmark_results import BenchmarkResultsDialog
 from app.widgets.guided_presets import ContextKvPresetDialog, CustomMtpPresetDialog, DeviceSplitPresetDialog
 from app.widgets.model_dialog import ModelDialog
-
-# Download destinations that map to a folder-backed builder row refreshed in place.
-_HF_REFRESH_FLAG = {
-    HfTarget.MODELS.value: "--model",
-    HfTarget.MMProj.value: "--mmproj",
-    HfTarget.DRAFTERS.value: "--spec-draft-model",
-    HfTarget.TEMPLATES.value: "--chat-template-file",
-}
 
 
 class SettingsPage(QWidget):
@@ -176,11 +165,8 @@ class MainWindow(QMainWindow):
         builder_splitter.setStretchFactor(0, 3)
         builder_splitter.setStretchFactor(1, 2)
         builder_layout.addWidget(builder_splitter, 1)
-        self.hf_service = HfCliService(self)
-        self.hf_tab = HfDownloadTab(settings, self.hf_service)
         self.viewer = ConfigViewer(settings)
         self.settings_page = SettingsPage(settings)
-        self.tabs.addTab(self.hf_tab, "Hugging Face")
         self.tabs.addTab(builder_page, "Command Builder")
         self.tabs.addTab(self.viewer, "llama-swap Config")
         self.tabs.addTab(self.settings_page, "Settings")
@@ -199,8 +185,6 @@ class MainWindow(QMainWindow):
         self.builder.benchmark_options_requested.connect(self.benchmark_options)
         self.builder.benchmark_cancel_requested.connect(self.benchmark_service.cancel)
         self.builder.add_to_swap_requested.connect(self.add_to_swap)
-        self.hf_tab.folders_changed.connect(self._on_hf_folders_changed)
-        self.hf_tab.use_requested.connect(self._on_hf_use_requested)
         self.viewer.load_requested.connect(self.load_from_swap)
         self.viewer.status.connect(lambda message: self.statusBar().showMessage(message, 5_000))
         self.runner.output.connect(self.console.append)
@@ -231,24 +215,6 @@ class MainWindow(QMainWindow):
     def settings_saved(self) -> None:
         self.builder.rebuild()
         self.viewer.refresh()
-
-    def _on_hf_folders_changed(self, targets: list) -> None:
-        names = []
-        for target in targets:
-            flag = _HF_REFRESH_FLAG.get(target)
-            if flag and self.builder.refresh_folder_for(flag):
-                names.append(TARGET_LABELS.get(target, str(target)))
-        if names:
-            self.statusBar().showMessage(f"Download finished — refreshed {', '.join(names)} selectors.", 8_000)
-        else:
-            self.statusBar().showMessage("Download finished.", 8_000)
-
-    def _on_hf_use_requested(self, flag: str, path: str) -> None:
-        try:
-            self.builder.set_argument(flag, [path], source_type="manual")
-            self.statusBar().showMessage(f"Set {flag} to {path}", 8_000)
-        except Exception as error:  # noqa: BLE001 - surface any catalog issue in the status bar
-            self.statusBar().showMessage(f"Could not set {flag}: {error}", 8_000)
 
     def _remove_arguments(self, canonical_name: str) -> None:
         before = len(self.builder.command.arguments)
@@ -512,5 +478,4 @@ class MainWindow(QMainWindow):
             self.memory_service.cancel()
         if self.benchmark_service.running:
             self.benchmark_service.cancel()
-        self.hf_service.shutdown()
         super().closeEvent(event)

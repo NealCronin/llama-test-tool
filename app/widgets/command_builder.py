@@ -115,7 +115,7 @@ class CommandBuilder(QWidget):
         self.rebuild()
 
     def refresh_folder_for(self, canonical_name: str) -> bool:
-        """Re-scan a folder-backed row's options in place (post-download refresh)."""
+        """Re-scan a folder-backed row's options in place."""
         for row in self.rows:
             if row.spec.canonical_name == canonical_name:
                 row.refresh_folder()

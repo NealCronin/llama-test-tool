@@ -198,7 +198,7 @@ class ArgumentRow(QWidget):
         self._sync_folder_value()
 
     def refresh_folder(self) -> None:
-        """Re-scan this row's folder combo from current settings (post-download refresh)."""
+        """Re-scan this row's folder combo from current settings."""
         special = self.spec.special_editor
         if special not in ("model", "mmproj", "template_file", "draft_model"):
             return

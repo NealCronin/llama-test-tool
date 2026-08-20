@@ -8,7 +8,8 @@ from PySide6.QtWidgets import (
 
 from app.services.llama_swap_service import LlamaSwapError, LlamaSwapService, suggested_model_id
 from app.widgets.ordered_list_editor import OrderedStringListEditor
-from app.widgets.optional_setting import OptionalBool, OptionalInt
+from app.widgets.optional_setting import OptionalBool, OptionalInt, OptionalSettingWidget
+from app.widgets.structured_yaml import StructuredYamlEditor, parse_structured_yaml
 from app.widgets.llama_swap_advanced import (
     ActivityPerformanceEditor,
     GeneralSettingsEditor,
@@ -131,7 +132,35 @@ class ConfigViewer(QWidget):
         self.send_loading_state = OptionalBool(False, settings_group)
         settings_form.addRow("Concurrency limit", self.concurrency_limit)
         settings_form.addRow("Send loading state", self.send_loading_state)
-
+        advanced = QGroupBox("Advanced (current upstream ModelConfig)", settings_group)
+        advanced_form = QFormLayout(advanced)
+        self.cmd_stop = OptionalSettingWidget("", placeholder="Optional: command that stops the model process (blank = omit)", parent=advanced)
+        self.proxy = OptionalSettingWidget("", placeholder="Optional: proxy URL, e.g. http://localhost:5900 (blank = omit)", parent=advanced)
+        advanced_form.addRow("Stop command", self.cmd_stop)
+        advanced_form.addRow("Proxy", self.proxy)
+        self.env = OrderedStringListEditor(placeholder="NAME=value (one per entry)", parent=advanced)
+        advanced_form.addRow("Environment", self.env)
+        self.metadata_editor = StructuredYamlEditor("Optional metadata (YAML mapping; extra /v1/models fields)", advanced)
+        advanced_form.addRow("Metadata", self.metadata_editor)
+        self.strip_params = OptionalSettingWidget("", placeholder="Optional: comma-separated request params to strip (blank = omit)", parent=advanced)
+        self.set_params_editor = StructuredYamlEditor("Optional setParams (YAML mapping of param → value, any type)", advanced)
+        self.set_params_by_id_editor = StructuredYamlEditor("Optional setParamsByID (YAML mapping of alias → param mapping)", advanced)
+        advanced_form.addRow("Filters: stripParams", self.strip_params)
+        advanced_form.addRow("Filters: setParams", self.set_params_editor)
+        advanced_form.addRow("Filters: setParamsByID", self.set_params_by_id_editor)
+        self.model_timeouts = {
+            "connect": OptionalInt(30, advanced),
+            "keepalive": OptionalInt(30, advanced),
+            "responseHeader": OptionalInt(0, advanced),
+            "tlsHandshake": OptionalInt(10, advanced),
+            "expectContinue": OptionalInt(1, advanced),
+            "idleConn": OptionalInt(90, advanced),
+        }
+        for label, widget in self.model_timeouts.items():
+            advanced_form.addRow(f"Timeout: {label}", widget)
+        self.ignore_websockets = OptionalBool(False, advanced)
+        advanced_form.addRow("Compat: ignoreWebsockets", self.ignore_websockets)
+        settings_form.addRow(advanced)
         self.save_settings_button = QPushButton("Save Model Settings", settings_group)
         self.save_settings_button.clicked.connect(self._save_model_settings)
         settings_actions_widget = QWidget(settings_group)
@@ -272,6 +301,19 @@ class ConfigViewer(QWidget):
         self.unload.load("unloadTimeout" in entry, entry.get("unloadTimeout", 0))
         self.concurrency_limit.load("concurrencyLimit" in entry, entry.get("concurrencyLimit", 0))
         self.send_loading_state.load("sendLoadingState" in entry, entry.get("sendLoadingState", False))
+        self.cmd_stop.load("cmdStop" in entry, entry.get("cmdStop") if isinstance(entry.get("cmdStop"), str) else "")
+        self.proxy.load("proxy" in entry, entry.get("proxy") if isinstance(entry.get("proxy"), str) else "")
+        self.env.set_values([str(value) for value in (entry.get("env") or [])])
+        self.metadata_editor.set_object(entry.get("metadata"))
+        filters = entry.get("filters") or {}
+        self.strip_params.load("stripParams" in filters, filters.get("stripParams") if isinstance(filters.get("stripParams"), str) else "")
+        self.set_params_editor.set_object(filters.get("setParams"))
+        self.set_params_by_id_editor.set_object(filters.get("setParamsByID"))
+        timeouts = entry.get("timeouts") or {}
+        for label, widget in self.model_timeouts.items():
+            widget.load(label in timeouts, timeouts.get(label, 0))
+        compat = entry.get("compat") or {}
+        self.ignore_websockets.load("ignoreWebsockets" in compat, bool(compat.get("ignoreWebsockets", False)))
         capabilities = entry.get("capabilities") or {}
         self.caps_configured.setChecked(bool(capabilities))
         for capability, checkbox in self.caps_in.items():
@@ -403,6 +445,26 @@ class ConfigViewer(QWidget):
             # is stored verbatim — never collapsed to absence.
             values["ttl"] = self.ttl.explicit()
             values["unloadTimeout"] = self.unload.explicit()
+            values["cmdStop"] = self.cmd_stop.explicit()
+            values["proxy"] = self.proxy.explicit()
+            values["env"] = [str(v) for v in self.env.values() if str(v).strip()] or None
+            values["metadata"] = parse_structured_yaml(self.metadata_editor.raw())
+            filters = {}
+            strip = self.strip_params.explicit()
+            if strip:
+                filters["stripParams"] = strip
+            set_params = parse_structured_yaml(self.set_params_editor.raw())
+            if set_params is not None:
+                filters["setParams"] = set_params
+            set_params_by_id = parse_structured_yaml(self.set_params_by_id_editor.raw())
+            if set_params_by_id is not None:
+                filters["setParamsByID"] = set_params_by_id
+            values["filters"] = filters or None
+            timeouts = {label: widget.explicit() for label, widget in self.model_timeouts.items()}
+            timeouts = {label: value for label, value in timeouts.items() if value is not None}
+            values["timeouts"] = timeouts or None
+            websockets = self.ignore_websockets.explicit()
+            values["compat"] = {"ignoreWebsockets": websockets} if websockets is not None else None
             capabilities: dict[str, object] = {}
             if self.caps_configured.isChecked():
                 inputs = [capability for capability, checkbox in self.caps_in.items() if checkbox.isChecked()]

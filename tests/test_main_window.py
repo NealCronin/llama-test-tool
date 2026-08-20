@@ -14,8 +14,6 @@ app = QApplication.instance() or QApplication([])
 
 
 def test_command_builder_page_contains_output_console(monkeypatch):
-    # Never spawn the user's real hf CLI in a GUI-hierarchy test.
-    monkeypatch.setattr("app.services.hf_cli_service.locate_hf_cli", lambda: None)
     window = MainWindow(AppSettings(), FlagCatalog(FlagCatalog.fallback_specs()))
     # The builder and the output console share a vertical splitter...
     splitter = window.builder.parentWidget()
@@ -50,7 +48,6 @@ def test_command_builder_page_contains_output_console(monkeypatch):
 
 
 def test_device_split_preset_swaps_cpu_moe_alias_without_duplicates(monkeypatch):
-    monkeypatch.setattr("app.services.hf_cli_service.locate_hf_cli", lambda: None)
     catalog = FlagCatalog.load_bundled(Path(__file__).resolve().parent.parent / "data" / "llama_server_flags.json")
     window = MainWindow(AppSettings(), catalog)
     owned = ("--cpu-moe", "--n-cpu-moe")
@@ -90,7 +87,7 @@ import pytest
 
 from app.models.command import CommandArgument
 from app.services.llama_cpp_installation import LlamaCppInstallationService
-from test_hf_cli_service import _spin_until
+from qt_utils import _spin_until
 from test_server_verification import fake_server, _teardown_runners  # noqa: F401
 
 
@@ -105,32 +102,7 @@ def _pick_port() -> int:
         return int(probe.getsockname()[1])
 
 
-def _launch_window(tmp_path, monkeypatch, bat: Path, *, timeout_s: int = 180):
-    monkeypatch.setattr("app.services.hf_cli_service.locate_hf_cli", lambda: None)
-    monkeypatch.setattr(
-        LlamaCppInstallationService,
-        "active_server",
-        staticmethod(lambda _settings: str(bat)),
-    )
-    settings = AppSettings(server_ready_timeout=timeout_s)
-    catalog = FlagCatalog.load_bundled(Path(__file__).resolve().parent.parent / "data" / "llama_server_flags.json")
-    window = MainWindow(settings, catalog)
-    model = tmp_path / "model.gguf"
-    model.write_bytes(b"x")
-    window.builder.command.arguments[0].values = [str(model)]
-    window.show()
-    QApplication.processEvents()
-    return window
-
-
-def _pick_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-        probe.bind(("127.0.0.1", 0))
-        return int(probe.getsockname()[1])
-
-
 def _launch_window(tmp_path, monkeypatch, fake_server: Path, *, timeout_s: int = 180) -> MainWindow:
-    monkeypatch.setattr("app.services.hf_cli_service.locate_hf_cli", lambda: None)
     monkeypatch.setattr(
         LlamaCppInstallationService,
         "active_server",

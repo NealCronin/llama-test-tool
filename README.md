@@ -1,6 +1,6 @@
 # Llama Test Tool
 
-A local PySide6 desktop application for the full local GGUF lifecycle: **download** model files, **configure** `llama-server`, **estimate memory**, **benchmark** inference, **test-launch** the server, and **persist the tested configuration** in llama-swap — all in one place, without ever hiding the underlying commands.
+A local PySide6 desktop application for the full local GGUF lifecycle: **configure** `llama-server`, **estimate memory**, **benchmark** inference, **test-launch** the server, and **persist the tested configuration** in llama-swap — all in one place, without ever hiding the underlying commands.
 
 Commands are kept as structured argv data (`executable` + ordered arguments), not one mutable shell string. That same structured configuration is reused for preview/copy, test launches, `llama-fit-params`, `llama-bench`, and llama-swap generation. Each downstream utility accepts a different subset and syntax, so the tool translates semantically, records skipped arguments and approximations, and shows the raw utility output. A test or benchmark run never mutates the builder.
 
@@ -14,12 +14,6 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python main.py
-```
-
-For the Hugging Face tab you also need the official `hf` CLI on `PATH`:
-
-```powershell
-python -m pip install -U huggingface_hub
 ```
 
 The application stores its own settings under the platform-specific configuration directory returned by `platformdirs` for **Llama Test Tool**; it does not create settings next to `llama-server` or beside a GGUF.
@@ -37,21 +31,6 @@ The `llama-server` used by the application is fixed at `Engines/llama.cpp/build-
 Every path remains editable. A missing prior path is colored as unavailable rather than silently cleared. Save settings, then return to **Command Builder**; folder-backed selectors refresh from these locations and have individual refresh buttons.
 
 Models are scanned recursively and sorted naturally. The scanner displays `.gguf` files and reduces clear `part-01`/`split-01` multipart GGUF sets to their first loader shard. Template selectors list `.jinja`, `.jinja2`, `.txt`, and `.tmpl`; manual Browse always allows any file.
-
-## Hugging Face downloads
-
-The **Hugging Face** tab is a GUI and process manager around the installed official `hf` CLI — it does not implement a custom downloader. Every CLI interaction (version, `auth whoami`, `download --help` capability probing, dry-run previews, downloads) runs asynchronously through `QProcess`; only `PATH` discovery is synchronous, so a slow or misconfigured `hf` can never block the GUI.
-
-The status row shows the `hf` CLI path, the `huggingface_hub` version, and either **Authenticated as \<user\>** or **Not authenticated**. **Refresh Status** re-probes; **Open Login Terminal** and **Copy Login Command** run or copy `hf auth login` interactively. There is deliberately no token field: authentication uses the `hf` CLI's own stored credentials, an inherited `HF_TOKEN` environment value works as-is, and secrets are redacted from every preview, console line, queue cell, and error detail.
-
-1. Enter a **Repo ID** (`owner/repo`) and choose the **Repository Type** (Model, Dataset, or Space — Model is the default and omits the flag; dataset/space add `--repo-type`).
-2. Add an optional revision (branch, tag, or commit) and choose the file selection: **Entire Repository**, **Exact File Names** (comma-separated), or **Include / Exclude Patterns** (glob lists).
-3. Choose the **Destination** — Models, MMProj, Drafters, or Chat Templates folders from Settings, **HF Cache Only** (with optional custom cache directory), or a **Custom Folder**.
-4. Options: **Force Download** (re-download even if cached) and an optional **max workers** override.
-5. The **Command Preview** shows the exact `hf download …` argv, updated live. **Preview Download (dry-run)** runs the real `hf download … --dry-run` (huggingface_hub 1.0.0+) and reports the file list and transfer size without touching the destination.
-6. **Add to Queue / Start** runs the items one at a time with a live console, a queue table (Repository / Type / Selection / Destination / State / Result), **Cancel Active** to terminate the running download, and **Remove Queued** to drop pending items.
-
-At startup the tab parses `hf download --help` and records which optional flags the installed release actually supports (`--repo-type`, `--revision`, `--include`, `--exclude`, `--cache-dir`, `--local-dir`, `--force-download`, `--dry-run`, `--max-workers`). If a feature is missing, the corresponding control is disabled with a compatibility note instead of passing an unsupported argument. After a run, the target folder is diffed to report precisely which files were newly created; a glob that matches nothing is flagged in the queue result rather than reported as a clean download. After a successful download the matching builder selectors refresh automatically.
 
 ## Building and testing commands
 
