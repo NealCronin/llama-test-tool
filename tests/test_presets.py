@@ -9,6 +9,7 @@ from app.models.command import CommandArgument
 from app.models.flags import FlagSpec
 from app.services.flag_catalog import FlagCatalog
 from app.settings import AppSettings
+from app.server import SERVER_COMMAND
 from app.widgets.searchable_flag_picker import SearchableFlagPicker
 from app.widgets.command_builder import CommandBuilder
 
@@ -72,4 +73,4 @@ def test_picker_lists_every_catalog_argument_without_advanced_filter():
 def test_builder_normalizes_imported_executable_to_configured_server():
     settings = AppSettings(last_command={"executable": r"D:\Engines\other\llama-server.exe", "arguments": [{"flag": "-m", "values": ["model.gguf"]}]})
     widget = CommandBuilder(settings, FlagCatalog([FlagSpec("--model", ("-m", "--model"), "model", 1)]))
-    assert widget.command.rendered_lines().splitlines()[0] == "Engines/llama.cpp/build-mixed/bin/Release/llama-server.exe"
+    assert widget.command.rendered_lines().splitlines()[0] == SERVER_COMMAND

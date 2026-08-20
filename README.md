@@ -26,7 +26,7 @@ Open **Settings** and choose:
 - **Models**, **MMProj**, **Drafters**, and **Chat Template** folders. There is one general Drafters folder; MTP, DFlash, DSpark, and any other external speculative/draft models all live there.
 - An existing llama-swap YAML configuration file (needed only for the llama-swap features).
 
-The `llama-server` used by the application is fixed at `Engines/llama.cpp/build-mixed/bin/Release/llama-server.exe`, shown read-only under **Detected Tools**. Preview, copy, imported commands, test launches, and llama-swap command generation all correspond to that server; for local execution its relative spelling is resolved to an absolute path. There is deliberately no per-command or per-model engine selection.
+The `llama-server` used by the application is fixed at `Engines/llama.cpp/build/bin/Release/llama-server.exe`, shown read-only under **Detected Tools**. Preview, copy, imported commands, test launches, and llama-swap command generation all correspond to that server; for local execution its relative spelling is resolved to an absolute path. There is deliberately no per-command or per-model engine selection.
 
 Every path remains editable. A missing prior path is colored as unavailable rather than silently cleared. Save settings, then return to **Command Builder**; folder-backed selectors refresh from these locations and have individual refresh buttons.
 
@@ -34,7 +34,7 @@ Models are scanned recursively and sorted naturally. The scanner displays `.gguf
 
 ## Building and testing commands
 
-A new command always begins with the non-removable `-m` model selector. Use **Add Argument** to search aliases, names, and upstream descriptions (`context`, `gpu`, `flash`, `draft`, `template`, and similar terms work). Rows choose appropriate editors for parameterless flags, enums, multi-value flags, models, MMProj files, external draft models, template files, and comma-separated `--spec-type` values. Use arrows to control argument order.
+A new command always begins with the non-removable `-m` model selector. Use **Add Argument** to search aliases, names, and upstream descriptions (`context`, `gpu`, `flash`, `draft`, `template`, and similar terms work). Rows choose appropriate editors for parameterless flags, enums, multi-value flags, models, MMProj files, external draft models, template files, and comma-separated `--spec-type` values. Rows can be reordered by dragging their left-hand grip or with the ↑/↓ buttons; the model row is always first.
 
 The Add Argument picker lists the entire llama.cpp argument catalog. Star a flag to pin it to the top of the picker; pins are personal sort priority only and never change the command, its order, or its values. **Spacer** inserts a visual separator between two argument rows (with up/down/remove controls). Spacers are presentation only: the command, preview, copied text, validation, and llama-swap output are byte-for-byte identical with or without them.
 
@@ -89,7 +89,8 @@ The **llama-swap Config** tab is organized as:
 
 - **Models** — search `models:` entries by ID or name; shows model ID, display name, command, detected model path, and missing-file status. Load a visual-builder-compatible command into the builder, save only the selected entry's `cmd`, edit metadata and the current upstream model-level settings (TTL/unload, stop command, proxy, environment, metadata, macros, filters, timeouts, compat, concurrency limit, send loading state), duplicate, or remove an entry after confirmation. Imported commands with unsupported flags, malformed quoting, or shell syntax stay in clearly labeled **Raw Command Mode** instead of being rewritten unsafely.
 - **General, Logging, Profiles** — targeted editors for the remaining common settings.
-- **Advanced** — a nested tab holding the eight less-common sections: **Activity / Performance, Security, Macros, Hooks, Upstream, Selectors, Routing, Peers**, each unchanged from its former top-level tab.
+- **API Keys** — the quick top-level editor for llama-swap `apiKeys`: literal keys stay masked in the list and `${env.NAME}` references are supported.
+- **Advanced** — a nested tab holding the seven less-common sections: **Activity / Performance, Macros, Hooks, Upstream, Selectors, Routing, Peers**, each unchanged from its former top-level tab.
 
 Every setting is **presence-aware**: an absent key, an explicitly configured key, and an effective default are shown and handled differently. Displaying a default never writes it; **Reset to Default** removes the key so llama-swap applies its own default, rather than writing the current default value. Unknown fields at any level are surfaced, and a failed validation leaves the file untouched.
 

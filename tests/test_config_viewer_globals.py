@@ -171,23 +171,44 @@ def test_models_right_pane_is_scrollable(tmp_path):
     viewer.close()
 
 
-def test_top_level_navigation_is_reduced_to_five_tabs_in_order(tmp_path):
+def test_top_level_navigation_has_six_tabs_in_order(tmp_path):
     _, viewer = make_viewer(tmp_path)
     assert [viewer.tabs.tabText(i) for i in range(viewer.tabs.count())] == [
-        "Models", "General", "Logging", "Profiles", "Advanced",
+        "Models", "General", "Logging", "Profiles", "API Keys", "Advanced",
     ]
     assert viewer.tabs.currentIndex() == 0  # Models is the default page
 
 
-def test_advanced_tab_contains_all_less_common_sections_with_same_editors(tmp_path):
+def test_api_keys_tab_is_the_single_security_editor(tmp_path):
     _, viewer = make_viewer(tmp_path)
-    advanced = viewer.tabs.widget(4)
+    api_keys_page = viewer.tabs.widget(4)
+    assert viewer.tabs.tabText(4) == "API Keys"
+    assert api_keys_page is viewer.security_editor  # one live editor instance
+
+
+def test_api_keys_tab_roundtrip_writes_and_removes_apik_keys(tmp_path):
+    config, viewer = make_viewer(tmp_path)
+    editor = viewer.security_editor  # the top-level API Keys tab editor
+    editor.keys.set_values(["${env.LLM_KEY}", "literal-9"])
+    editor.apply(editor._service)
+    data = yaml().load(config.read_text(encoding="utf-8"))
+    assert data["apiKeys"] == ["${env.LLM_KEY}", "literal-9"]
+    assert data["models"]  # roundtrip preserved the rest of the file
+    editor.reset(editor._service)
+    data = yaml().load(config.read_text(encoding="utf-8"))
+    assert "apiKeys" not in data
+    viewer.close()
+
+
+def test_advanced_tab_contains_less_common_sections_without_security(tmp_path):
+    _, viewer = make_viewer(tmp_path)
+    advanced = viewer.tabs.widget(5)
     assert isinstance(advanced, QTabWidget)
     assert [advanced.tabText(i) for i in range(advanced.count())] == [
-        "Activity / Performance", "Security", "Macros", "Hooks", "Upstream", "Selectors", "Routing", "Peers",
+        "Activity / Performance", "Macros", "Hooks", "Upstream", "Selectors", "Routing", "Peers",
     ]
     editors = (
-        viewer.activity_editor, viewer.security_editor, viewer.macros_editor, viewer.hooks_editor,
+        viewer.activity_editor, viewer.macros_editor, viewer.hooks_editor,
         viewer.upstream_editor, viewer.selectors_editor, viewer.routing_editor, viewer.peers_editor,
     )
     for index, editor in enumerate(editors):
@@ -195,6 +216,7 @@ def test_advanced_tab_contains_all_less_common_sections_with_same_editors(tmp_pa
     assert viewer.tabs.widget(1) is viewer.general_editor
     assert viewer.tabs.widget(2) is viewer.logging_editor
     assert viewer.tabs.widget(3) is viewer.profiles_editor
+    assert viewer.security_editor not in tuple(advanced.widget(i) for i in range(advanced.count()))
 
 
 def test_regrouping_editors_does_not_mutate_configuration(tmp_path):

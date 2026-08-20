@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-SERVER_COMMAND = "Engines/llama.cpp/build-mixed/bin/Release/llama-server.exe"
+SERVER_COMMAND = "Engines/llama.cpp/build/bin/Release/llama-server.exe"
 
 
 def server_executable_path() -> Path:

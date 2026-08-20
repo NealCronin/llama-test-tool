@@ -125,7 +125,7 @@ futureField: keep
 models:
   qwen:
     cmd: |
-      Engines/llama.cpp/build-mixed/bin/Release/llama-server.exe
+      Engines/llama.cpp/build/bin/Release/llama-server.exe
       --port
       ${PORT}
       -m

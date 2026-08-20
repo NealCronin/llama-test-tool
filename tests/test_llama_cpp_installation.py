@@ -38,9 +38,11 @@ def test_discovers_multiple_builds_and_handles_missing_tools(tmp_path):
     assert not installation.bench.found
 
 
-def test_active_server_is_the_configured_build_mixed_server():
-    from app.server import SERVER_COMMAND
+def test_active_server_is_the_standard_build_server():
+    from app.server import SERVER_COMMAND, server_executable_path
     from app.settings import AppSettings
 
+    assert SERVER_COMMAND == "Engines/llama.cpp/build/bin/Release/llama-server.exe"
     active = LlamaCppInstallationService.active_server(AppSettings())
     assert active.replace("\\", "/").endswith(SERVER_COMMAND)
+    assert server_executable_path().as_posix().endswith("Engines/llama.cpp/build/bin/Release/llama-server.exe")
