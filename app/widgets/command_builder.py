@@ -5,8 +5,15 @@ from pathlib import Path
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
-    QCheckBox, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea,
-    QVBoxLayout, QWidget,
+    QCheckBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
 from app.models.command import Command, CommandArgument
@@ -38,6 +45,7 @@ class CommandBuilder(QWidget):
         self.command = Command.from_dict(settings.last_command) if settings.last_command else Command(executable=SERVER_COMMAND)
         self.command.executable = SERVER_COMMAND
         self.rows: list[ArgumentRow] = []
+        self.spacer_rows: list[_SpacerRow] = []
         layout = QVBoxLayout(self)
         heading = QHBoxLayout()
         heading.addWidget(QLabel("<h2>Command Builder</h2>"))
@@ -54,13 +62,16 @@ class CommandBuilder(QWidget):
         scroll.setWidget(self.arguments_host)
         layout.addWidget(scroll, 1)
 
+        button_row = QHBoxLayout()
         add = QPushButton("+ Add Argument")
         add.clicked.connect(self.add_argument)
-        layout.addWidget(add)
-        self.help_label = QLabel()
-        self.help_label.setWordWrap(True)
-        self.help_label.setStyleSheet("color: #6b7280; padding: 4px;")
-        layout.addWidget(self.help_label)
+        self.spacer_button = QPushButton("+ Spacer")
+        self.spacer_button.setToolTip("Insert a visual separator between two argument rows. It never changes the command.")
+        self.spacer_button.clicked.connect(self.add_spacer)
+        button_row.addWidget(add)
+        button_row.addWidget(self.spacer_button)
+        button_row.addStretch()
+        layout.addLayout(button_row)
 
         controls = QHBoxLayout()
         self.preview_vertical = QCheckBox("Vertical preview")
@@ -127,7 +138,12 @@ class CommandBuilder(QWidget):
             row = self.rows.pop()
             self.arguments_layout.removeWidget(row)
             row.deleteLater()
-        for argument in self.command.arguments:
+        while self.spacer_rows:
+            spacer = self.spacer_rows.pop()
+            self.arguments_layout.removeWidget(spacer)
+            spacer.deleteLater()
+        spacers = {boundary for boundary in self.settings.builder_spacers if 1 <= boundary <= len(self.command.arguments) - 1}
+        for position, argument in enumerate(self.command.arguments, start=1):
             spec = self.catalog.find(argument.flag)
             if spec is None:
                 spec = FlagSpec(argument.flag, (argument.flag,), "Unknown argument retained from saved/imported command.", len(argument.values))
@@ -135,15 +151,22 @@ class CommandBuilder(QWidget):
             row.changed.connect(self._changed)
             row.remove_requested.connect(self.remove_row)
             row.move_requested.connect(self.move_row)
-            row.flag_label.enterEvent = lambda event, text=row.detail_text(): self.help_label.setText(text)
             self.arguments_layout.insertWidget(self.arguments_layout.count() - 1, row)
             self.rows.append(row)
+            if position in spacers:
+                spacer = _SpacerRow(position, len(self.command.arguments) - 1, self.move_spacer, self.remove_spacer)
+                self.arguments_layout.insertWidget(self.arguments_layout.count() - 1, spacer)
+                self.spacer_rows.append(spacer)
+        self.spacer_button.setEnabled(len(self.command.arguments) >= 2)
         self._changed()
 
     def add_argument(self) -> None:
-        picker = SearchableFlagPicker(self.catalog, self.settings.picker_show_advanced, self)
-        if picker.exec() and picker.selected:
-            self.settings.picker_show_advanced = picker.show_advanced
+        picker = SearchableFlagPicker(self.catalog, self.settings.pinned_flags, self)
+        picker.exec()
+        if picker.pinned_flags != self.settings.pinned_flags:
+            self.settings.pinned_flags = picker.pinned_flags
+            self._changed()
+        if picker.selected:
             self.add_spec(picker.selected, flag=picker.selected_flag)
 
     def add_spec(self, spec: FlagSpec, values: list[str] | None = None, source_type: str = "manual", flag: str | None = None) -> None:
@@ -197,10 +220,46 @@ class CommandBuilder(QWidget):
         self.command.arguments[index], self.command.arguments[target] = self.command.arguments[target], self.command.arguments[index]
         self.rebuild()
 
+    def add_spacer(self) -> None:
+        spacers = set(self.settings.builder_spacers)
+        for boundary in range(len(self.command.arguments) - 1, 0, -1):
+            if boundary not in spacers:
+                spacers.add(boundary)
+                self.settings.builder_spacers = sorted(spacers)
+                self.rebuild()
+                return
+
+    def move_spacer(self, boundary: int, offset: int) -> None:
+        target = boundary + offset
+        if not 1 <= target <= len(self.command.arguments) - 1:
+            return
+        spacers = set(self.settings.builder_spacers)
+        if target in spacers:
+            return
+        spacers.discard(boundary)
+        spacers.add(target)
+        self.settings.builder_spacers = sorted(spacers)
+        self.rebuild()
+
+    def remove_spacer(self, boundary: int) -> None:
+        if boundary not in self.settings.builder_spacers:
+            return
+        spacers = set(self.settings.builder_spacers)
+        spacers.discard(boundary)
+        self.settings.builder_spacers = sorted(spacers)
+        self.rebuild()
+
+    def load_command(self, command: Command) -> None:
+        """Replace the visible command (imported from llama-swap); resets the spacer layout."""
+        self.command = command
+        self.settings.builder_spacers = []
+        self.rebuild()
+
     def clear_command(self) -> None:
         if QMessageBox.question(self, "Clear command", "Remove every argument except the model selector?") != QMessageBox.StandardButton.Yes:
             return
         self.command.reset()
+        self.settings.builder_spacers = []
         self.rebuild()
 
     def set_running(self, running: bool) -> None:
@@ -233,3 +292,37 @@ class CommandBuilder(QWidget):
             self.validation.setText("Ready to test or add to llama-swap.")
             self.validation.setStyleSheet("color: #15803d;")
         self.changed.emit()
+
+
+class _SpacerRow(QWidget):
+    """Presentation-only separator between two argument rows; never part of the command."""
+
+    def __init__(self, boundary: int, max_boundary: int, on_move, on_remove) -> None:
+        super().__init__()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        layout.addWidget(line)
+        controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(2)
+        controls.addStretch()
+        up = QPushButton("↑", self)
+        down = QPushButton("↓", self)
+        remove = QPushButton("×", self)
+        up.setToolTip("Move spacer up")
+        down.setToolTip("Move spacer down")
+        remove.setToolTip("Remove spacer")
+        up.setEnabled(boundary > 1)
+        down.setEnabled(boundary < max_boundary)
+        up.clicked.connect(lambda: on_move(boundary, -1))
+        down.clicked.connect(lambda: on_move(boundary, 1))
+        remove.clicked.connect(lambda: on_remove(boundary))
+        for button in (up, down, remove):
+            button.setFixedHeight(20)
+            button.setMinimumWidth(24)
+            controls.addWidget(button)
+        layout.addLayout(controls)

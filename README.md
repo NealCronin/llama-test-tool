@@ -36,7 +36,7 @@ Models are scanned recursively and sorted naturally. The scanner displays `.gguf
 
 A new command always begins with the non-removable `-m` model selector. Use **Add Argument** to search aliases, names, and upstream descriptions (`context`, `gpu`, `flash`, `draft`, `template`, and similar terms work). Rows choose appropriate editors for parameterless flags, enums, multi-value flags, models, MMProj files, external draft models, template files, and comma-separated `--spec-type` values. Use arrows to control argument order.
 
-Common flags are surfaced in a curated list; the complete llama.cpp argument catalog remains available under Advanced.
+The Add Argument picker lists the entire llama.cpp argument catalog. Star a flag to pin it to the top of the picker; pins are personal sort priority only and never change the command, its order, or its values. **Spacer** inserts a visual separator between two argument rows (with up/down/remove controls). Spacers are presentation only: the command, preview, copied text, validation, and llama-swap output are byte-for-byte identical with or without them.
 
 The preview is read-only. **Copy Command** copies a Windows-safe quoted command. **Vertical preview** emits a readable `^`-continued display. The command state—argument order, values, source selections, and model—is saved automatically.
 

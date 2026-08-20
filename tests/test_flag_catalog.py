@@ -1,7 +1,7 @@
 from pathlib import Path
 
+from app.services import flag_catalog
 from app.services.flag_catalog import FlagCatalog
-
 
 def catalog() -> FlagCatalog:
     return FlagCatalog.parse_readme("""\
@@ -76,14 +76,15 @@ def test_negative_only_flag_remains_selectable():
     assert spec.selectable_aliases == ("--no-mmap",)
 
 
-def test_common_catalog_is_explicit_and_unknown_flags_remain_advanced():
+def test_catalog_exposes_every_flag_without_common_policy():
     actual = FlagCatalog.parse_readme("""\
 | `-c, --ctx-size N` | context |
 | `--new-upstream-flag VALUE` | unknown |
 | `--port PORT` | server port |
 """)
-    assert {spec.canonical_name for spec in actual.common_specs()} == {"--ctx-size", "--port"}
-    assert "--new-upstream-flag" not in {spec.canonical_name for spec in actual.common_specs()}
+    assert not hasattr(flag_catalog, "COMMON_FLAG_REFERENCES")
+    assert not hasattr(actual, "common_specs")
+    assert {spec.canonical_name for spec in actual.search("")} == {"--ctx-size", "--new-upstream-flag", "--port"}
 
 
 def test_real_catalog_short_negative_aliases_are_negative():

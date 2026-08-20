@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QFormLayout, QGroupBox, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QMessageBox, QPushButton, QSplitter, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
+    QMessageBox, QPushButton, QScrollArea, QSplitter, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
 )
 
 from app.services.llama_swap_service import LlamaSwapError, LlamaSwapService, suggested_model_id
@@ -82,7 +82,10 @@ class ConfigViewer(QWidget):
         left_layout.addLayout(buttons)
         splitter.addWidget(left)
 
-        right = QWidget(splitter)
+        scroll = QScrollArea(splitter)
+        scroll.setWidgetResizable(True)
+        self.model_scroll = scroll
+        right = QWidget(scroll)
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
         raw_group = QGroupBox("llama-swap Command", right)
@@ -98,7 +101,7 @@ class ConfigViewer(QWidget):
         command_actions.addWidget(reset)
         command_actions.addStretch()
         raw_layout.addLayout(command_actions)
-        right_layout.addWidget(raw_group, 1)
+        right_layout.addWidget(raw_group)
 
         settings_group = QGroupBox("Model Settings", right)
         settings_form = QFormLayout(settings_group)
@@ -118,12 +121,14 @@ class ConfigViewer(QWidget):
         settings_form.addRow(self.use_model_name)
         settings_form.addRow(self.check_endpoint)
         settings_form.addRow(self.unlisted)
-        # Presence-aware: unchecked = key absent (inherit global), checked with
-        # a value = explicitly stored. ttl accepts -1 ("never unload"); the
-        # save path writes the exact explicit value and removes the key when
-        # the field is left unset.
+        # Presence-aware: unchecked = key absent, checked with a value =
+        # explicitly stored; the save path writes the exact explicit value and
+        # removes the key when the field is left unset. ttl follows the pinned
+        # upstream semantics: unset = key omitted (upstream default handling),
+        # -1 = use globalTTL, 0 = never automatically unload, > 0 = per-model
+        # TTL in seconds.
         self.ttl = OptionalInt(0, settings_group)
-        self.ttl.edit.setPlaceholderText("unset = inherit global; -1 = never unload")
+        self.ttl.edit.setPlaceholderText("unset = upstream default; -1 = global TTL; 0 = never unload; >0 = unload after N seconds")
         self.unload = OptionalInt(0, settings_group)
         self.unload.edit.setPlaceholderText("unset = inherit global")
         settings_form.addRow("TTL (seconds)", self.ttl)
@@ -200,8 +205,10 @@ class ConfigViewer(QWidget):
         caps_layout.addWidget(self.caps_configured)
         caps_layout.addLayout(caps_grid)
         settings_form.addRow(caps_group)
-        right_layout.addWidget(settings_group, 1)
-        splitter.addWidget(right)
+        right_layout.addWidget(settings_group)
+        right_layout.addStretch()
+        scroll.setWidget(right)
+        splitter.addWidget(scroll)
         page.addWidget(splitter, 1)
         self.tabs.addTab(models_page, "Models")
 

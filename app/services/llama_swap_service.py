@@ -20,6 +20,9 @@ UPSTREAM_REPOSITORY = "https://github.com/mostlygeek/llama-swap"
 UPSTREAM_SCHEMA_PATH = "config-schema.json"
 UPSTREAM_SCHEMA_COMMIT = "23c28febf1ccf3940aa01c077e46ff633da2a279"
 SNAPSHOT_DATE = "2026-08-20"
+# SHA-256 of the RAW upstream config-schema.json bytes at UPSTREAM_SCHEMA_COMMIT
+# (stored byte-for-byte at data/llama_swap_config_schema.pristine.json).
+UPSTREAM_SCHEMA_SHA256 = "be3f6e5dd062a242c9265edf8ed3baccc058866487665f0517233bcc638caaec"
 
 
 class LlamaSwapError(RuntimeError):

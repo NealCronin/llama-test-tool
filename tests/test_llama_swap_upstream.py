@@ -14,6 +14,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from app.services.llama_swap_service import (
     UPSTREAM_REPOSITORY,
     UPSTREAM_SCHEMA_COMMIT,
     UPSTREAM_SCHEMA_PATH,
+    UPSTREAM_SCHEMA_SHA256,
 )
 from app.widgets.llama_swap_advanced import GeneralSettingsEditor, RoutingEditor
 
@@ -190,10 +192,23 @@ def test_general_editor_log_requests_roundtrip_preserves_globals(tmp_path):
 
 
 def test_bundled_schema_snapshot_provenance():
-    """The bundled schema artifact must match the declared upstream snapshot."""
+    """The bundled schema artifact must match the declared upstream snapshot.
+
+    UPSTREAM_SCHEMA_SHA256 is the SHA-256 of the RAW upstream
+    config-schema.json bytes at the pinned commit, stored byte-for-byte in
+    data/llama_swap_config_schema.pristine.json. The bundled
+    data/llama_swap_config_schema.json must equal that pristine schema
+    modulo the top-level "x-source" provenance annotation (compared at the
+    JSON parse level, so whitespace and key order are irrelevant).
+    """
     schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
     provenance = schema.get("x-source", {})
     assert provenance.get("repository") == UPSTREAM_REPOSITORY
     assert provenance.get("upstream_path") == UPSTREAM_SCHEMA_PATH
     assert provenance.get("upstream_commit") == UPSTREAM_SCHEMA_COMMIT
     assert provenance.get("snapshot_date") == SNAPSHOT_DATE
+    pristine_path = SCHEMA.parent / "llama_swap_config_schema.pristine.json"
+    assert hashlib.sha256(pristine_path.read_bytes()).hexdigest() == UPSTREAM_SCHEMA_SHA256
+    pristine = json.loads(pristine_path.read_text(encoding="utf-8"))
+    bundled_body = {key: value for key, value in schema.items() if key != "x-source"}
+    assert bundled_body == pristine

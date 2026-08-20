@@ -464,8 +464,7 @@ class MainWindow(QMainWindow):
             return
         previous_executable = result.command.executable
         result.command.executable = SERVER_COMMAND
-        self.builder.command = result.command
-        self.builder.rebuild()
+        self.builder.load_command(result.command)
         self.tabs.setCurrentWidget(self.tabs.widget(0))
         warning = " This entry used another server executable; the Command Builder uses the configured build-mixed llama-server." if previous_executable != SERVER_COMMAND else ""
         self.statusBar().showMessage(f"Loaded llama-swap command into the visual builder.{warning}", 8_000)

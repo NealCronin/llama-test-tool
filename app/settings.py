@@ -20,7 +20,8 @@ class AppSettings:
     llama_swap_config: str = ""
     memory_fit_target: str = ""
     memory_fit_context: str = ""
-    picker_show_advanced: bool = False
+    pinned_flags: list[str] = field(default_factory=list)
+    builder_spacers: list[int] = field(default_factory=list)
     benchmark_prompt_tokens: int = 512
     benchmark_generation_tokens: int = 128
     benchmark_repetitions: int = 5
@@ -46,7 +47,10 @@ class AppSettings:
             if not data.get("drafters_folder"):
                 data["drafters_folder"] = next((str(data[key]) for key in ("mtp_folder", "dflash_folder", "dspark_folder", "draft_folder") if data.get(key)), "")
             valid = {key: value for key, value in data.items() if key in cls.__dataclass_fields__}
-            return cls(**valid)
+            settings = cls(**valid)
+            settings.pinned_flags = list(dict.fromkeys(name for name in settings.pinned_flags if isinstance(name, str)))
+            settings.builder_spacers = list(dict.fromkeys(count for count in settings.builder_spacers if isinstance(count, int) and not isinstance(count, bool)))
+            return settings
         except (OSError, json.JSONDecodeError, TypeError):
             return cls()
     def save(self) -> None:

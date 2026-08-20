@@ -5,7 +5,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QScrollArea, QSplitter
 from ruamel.yaml import YAML
 
 from app.settings import AppSettings
@@ -132,3 +132,40 @@ def test_failed_validation_leaves_yaml_unchanged(tmp_path):
     with pytest.raises(Exception, match="healthCheckTimeout"):
         editor.apply(editor._service)
     assert config.read_text(encoding="utf-8") == original
+
+
+def test_ttl_placeholder_documents_upstream_ttl_semantics(tmp_path):
+    _, viewer = make_viewer(tmp_path)
+    placeholder = viewer.ttl.edit.placeholderText()
+    assert placeholder == "unset = upstream default; -1 = global TTL; 0 = never unload; >0 = unload after N seconds"
+    assert "-1 = global TTL" in placeholder
+    assert "0 = never unload" in placeholder
+    assert ">0 = unload after N seconds" in placeholder
+    assert "-1 = never" not in placeholder
+
+
+def test_models_right_pane_is_scrollable(tmp_path):
+    _, viewer = make_viewer(tmp_path)
+    viewer.list.itemClicked.emit(viewer.list.item(0))
+    assert viewer.current_id == "old-model"
+    models_page = viewer.tabs.widget(0)
+    splitter = models_page.findChild(QSplitter)
+    assert splitter is not None
+    assert splitter.count() == 2
+    assert splitter.widget(1) is viewer.model_scroll
+    assert isinstance(viewer.model_scroll, QScrollArea)
+    assert viewer.model_scroll.widgetResizable()
+    assert not isinstance(splitter.widget(0), QScrollArea)  # left pane stays fixed
+
+    def under(widget, ancestor) -> bool:
+        while (widget := widget.parentWidget()) is not None:
+            if widget is ancestor:
+                return True
+        return False
+
+    content = viewer.model_scroll.widget()
+    assert content is not None
+    for widget in (viewer.raw, viewer.ttl, viewer.caps_context):
+        assert under(widget, content)
+    assert under(viewer.list, splitter.widget(0))
+    viewer.close()

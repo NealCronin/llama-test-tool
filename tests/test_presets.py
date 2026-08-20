@@ -2,6 +2,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from app.models.command import CommandArgument
@@ -58,18 +59,15 @@ def test_custom_mtp_updates_existing_logical_arguments_once():
 
 
 
-def test_picker_defaults_to_common_and_advanced_reveals_catalog():
-    app = QApplication.instance() or QApplication([])
+def test_picker_lists_every_catalog_argument_without_advanced_filter():
     catalog = FlagCatalog([
         FlagSpec("--ctx-size", ("-c", "--ctx-size"), "context", 1),
         FlagSpec("--uncommon-new-flag", ("--uncommon-new-flag",), "advanced", 1),
     ])
     picker = SearchableFlagPicker(catalog)
-    default_flags = {picker.results.item(index).data(256 + 1) for index in range(picker.results.count())}
-    assert "--uncommon-new-flag" not in default_flags
-    picker.advanced.setChecked(True)
-    advanced_flags = {picker.results.item(index).data(256 + 1) for index in range(picker.results.count())}
-    assert "--uncommon-new-flag" in advanced_flags
+    assert not hasattr(picker, "advanced")
+    flags = {picker.results.item(i).data(Qt.ItemDataRole.UserRole + 1) for i in range(picker.results.count())}
+    assert flags == {"-c", "--uncommon-new-flag"}
 
 def test_builder_normalizes_imported_executable_to_configured_server():
     settings = AppSettings(last_command={"executable": r"D:\Engines\other\llama-server.exe", "arguments": [{"flag": "-m", "values": ["model.gguf"]}]})
