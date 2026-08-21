@@ -95,7 +95,7 @@ class SearchableFlagPicker(QDialog):
         entries.sort(key=lambda entry: self._rank(entry[0], entry[1], query, pin_order))
         width = self._row_width()
         for spec, flag in entries:
-            item = QListWidgetItem(flag)
+            item = QListWidgetItem("")  # the row widget draws the flag; item text would double-draw behind it
             item.setData(Qt.ItemDataRole.UserRole, spec)
             item.setData(Qt.ItemDataRole.UserRole + 1, flag)
             row = _FlagRow(spec, flag, spec.canonical_name in pin_order, self._toggle_pin, width)

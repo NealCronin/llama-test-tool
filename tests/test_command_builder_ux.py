@@ -107,8 +107,11 @@ def test_picker_rows_show_only_the_flag():
     assert row.star.accessibleName() == "Pin --ctx-size"
     assert row.star.text() == "☆"
     for index in range(picker.results.count()):
-        entry = picker.results.itemWidget(picker.results.item(index))
+        item = picker.results.item(index)
+        entry = picker.results.itemWidget(item)
         assert entry.flag_label.text()
+        assert item.text() == ""  # the row widget alone draws the flag
+        assert item.data(Qt.ItemDataRole.UserRole + 1)
 
 
 def test_builder_persists_pin_changes_even_when_picker_cancels(monkeypatch):
