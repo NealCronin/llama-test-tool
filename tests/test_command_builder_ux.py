@@ -114,6 +114,24 @@ def test_picker_rows_show_only_the_flag():
         assert item.data(Qt.ItemDataRole.UserRole + 1)
 
 
+def test_pinning_a_flag_keeps_the_full_list_visible():
+    app = QApplication.instance() or QApplication([])
+    picker = SearchableFlagPicker(catalog())
+    picker.resize(480, 320)
+    picker.show()
+    app.processEvents()
+    before = picker.results.count()
+    assert before > 2
+    row = picker.results.itemWidget(picker.results.item(1))
+    canonical = row.star.accessibleName().split(" ", 1)[1]
+    row.star.click()  # a pin toggle repopulates mid-show; it must not drop rows
+    app.processEvents()
+    assert picker.results.count() == before
+    top_spec = picker.results.item(0).data(Qt.ItemDataRole.UserRole)
+    assert top_spec.canonical_name == canonical
+    picker.close()
+
+
 def test_builder_persists_pin_changes_even_when_picker_cancels(monkeypatch):
     settings = AppSettings()
     widget = builder(settings)

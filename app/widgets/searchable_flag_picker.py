@@ -66,6 +66,7 @@ class SearchableFlagPicker(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+        self._rebuilding = False
         self.populate()
 
     def _rank(self, spec: FlagSpec, flag: str, query: str, pin_order: dict[str, int]) -> tuple[int, int, int, str]:
@@ -82,35 +83,41 @@ class SearchableFlagPicker(QDialog):
             prefix = any(name.casefold().startswith(folded) for name in names)
             kind = 0 if exact else (1 if prefix else 2)
         return (pin_class, kind, pin_order.get(spec.canonical_name, 0), flag)
-
     def populate(self) -> None:
         current = self.results.currentItem().data(Qt.ItemDataRole.UserRole + 1) if self.results.currentItem() else None
-        self.results.clear()
-        query = self.search.text().strip()
-        pin_order = {name: index for index, name in enumerate(self.pinned_flags)}
-        entries: list[tuple[FlagSpec, str]] = []
-        for spec in self.catalog.search(query):
-            flags = (spec.preferred_name, *spec.negative_aliases) if spec.negative_aliases else (spec.preferred_name,)
-            entries.extend((spec, flag) for flag in dict.fromkeys(flags))
-        entries.sort(key=lambda entry: self._rank(entry[0], entry[1], query, pin_order))
-        width = self._row_width()
-        for spec, flag in entries:
-            item = QListWidgetItem("")  # the row widget draws the flag; item text would double-draw behind it
-            item.setData(Qt.ItemDataRole.UserRole, spec)
-            item.setData(Qt.ItemDataRole.UserRole + 1, flag)
-            row = _FlagRow(spec, flag, spec.canonical_name in pin_order, self._toggle_pin, width)
-            self.results.addItem(item)
-            self.results.setItemWidget(item, row)
-            item.setSizeHint(row.sizeHint())
-            if flag == current:
-                self.results.setCurrentItem(item)
-        if self.results.count() and self.results.currentItem() is None:
-            self.results.setCurrentRow(0)
+        self._rebuilding = True
+        try:
+            self.results.clear()
+            query = self.search.text().strip()
+            pin_order = {name: index for index, name in enumerate(self.pinned_flags)}
+            entries: list[tuple[FlagSpec, str]] = []
+            for spec in self.catalog.search(query):
+                flags = (spec.preferred_name, *spec.negative_aliases) if spec.negative_aliases else (spec.preferred_name,)
+                entries.extend((spec, flag) for flag in dict.fromkeys(flags))
+            entries.sort(key=lambda entry: self._rank(entry[0], entry[1], query, pin_order))
+            width = self._row_width()
+            for spec, flag in entries:
+                item = QListWidgetItem("")  # the row widget draws the flag; item text would double-draw behind it
+                item.setData(Qt.ItemDataRole.UserRole, spec)
+                item.setData(Qt.ItemDataRole.UserRole + 1, flag)
+                row = _FlagRow(spec, flag, spec.canonical_name in pin_order, self._toggle_pin, width)
+                self.results.addItem(item)
+                self.results.setItemWidget(item, row)
+                item.setSizeHint(row.sizeHint())
+                if flag == current:
+                    self.results.setCurrentItem(item)
+            if self.results.count() and self.results.currentItem() is None:
+                self.results.setCurrentRow(0)
+        finally:
+            self._rebuilding = False
+        self._rows_resized()  # sync row widths to the viewport now that the scrollbar state is settled
 
     def _row_width(self) -> int:
         return max(self.results.viewport().width(), self.width() - 40, 320)
 
     def _rows_resized(self) -> None:
+        if self._rebuilding:
+            return  # populate rebuilds the rows itself; a resize mid-rebuild must not re-enter
         width = self._row_width()
         for index in range(self.results.count()):
             item = self.results.item(index)
@@ -118,7 +125,7 @@ class SearchableFlagPicker(QDialog):
             if row is not None:
                 row._width = width
                 item.setSizeHint(row.sizeHint())
-        self.results.resizeRowsToContents()
+        self.results.doItemsLayout()
 
     def eventFilter(self, watched, event) -> bool:
         if watched is self.results.viewport() and event.type() == QEvent.Type.Resize:
