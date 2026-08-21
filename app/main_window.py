@@ -16,7 +16,7 @@ from app.services.flag_catalog import FlagCatalog
 from app.services.llama_swap_service import DuplicateModelError, LlamaSwapError, LlamaSwapService, suggested_model_id
 from app.services.validation import validate_command
 from app.services.llama_cpp_installation import LlamaCppInstallationService
-from app.server import SERVER_COMMAND, server_executable_path
+from app.server import SERVER_COMMAND, fixed_tool_path, server_executable_path
 from app.services.memory_test_service import MemoryTestService
 from app.services.benchmark_service import BenchmarkService
 from app.services.server_verification_service import ServerVerificationService
@@ -109,8 +109,15 @@ class SettingsPage(QWidget):
         self._scanned_folder = self.fields["llama_cpp_folder"].text().strip()
         installation = LlamaCppInstallationService.discover(self.fields["llama_cpp_folder"].text().strip())
         self.server_path.setText(SERVER_COMMAND if server_executable_path().is_file() else f"⚠ Missing: {SERVER_COMMAND}")
-        self._populate_tool_combo(self.fit_combo, installation.fit_params.paths, self.settings.llama_fit_params_executable)
-        self._populate_tool_combo(self.bench_combo, installation.bench.paths, self.settings.llama_bench_executable)
+        self._populate_tool_combo(self.fit_combo, self._tool_paths(installation.fit_params.paths, "llama-fit-params"), self.settings.llama_fit_params_executable)
+        self._populate_tool_combo(self.bench_combo, self._tool_paths(installation.bench.paths, "llama-bench"), self.settings.llama_bench_executable)
+
+    @staticmethod
+    def _tool_paths(paths, tool: str):
+        fixed = fixed_tool_path(tool)
+        if fixed.is_file() and fixed.resolve() not in paths:
+            return (fixed, *paths)
+        return paths
 
     @staticmethod
     def _populate_tool_combo(combo: QComboBox, paths, selected: str) -> None:

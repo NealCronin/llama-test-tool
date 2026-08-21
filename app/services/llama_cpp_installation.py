@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from app.server import SERVER_COMMAND, server_executable_path
+from app.server import fixed_tool_path, server_executable_path
 
 
 @dataclass(frozen=True)
@@ -67,17 +67,20 @@ class LlamaCppInstallationService:
 
     @classmethod
     def active_fit_params(cls, settings) -> str:
-        return cls._active_discovered(settings.llama_fit_params_executable, settings.llama_cpp_folder, "llama-fit-params")
+        return cls._active_tool("llama-fit-params", settings.llama_fit_params_executable, settings.llama_cpp_folder)
 
     @classmethod
     def active_bench(cls, settings) -> str:
-        return cls._active_discovered(settings.llama_bench_executable, settings.llama_cpp_folder, "llama-bench")
+        return cls._active_tool("llama-bench", settings.llama_bench_executable, settings.llama_cpp_folder)
 
     @classmethod
-    def _active_discovered(cls, selected: str, folder: str, tool: str) -> str:
+    def _active_tool(cls, tool: str, selected: str, folder: str) -> str:
         path = Path(selected) if selected else None
         if path and path.is_file():
             return str(path)
+        fixed = fixed_tool_path(tool)
+        if fixed.is_file():
+            return str(fixed)
         discovered = cls.discover(folder).tool(tool).paths
         return str(discovered[0]) if discovered else ""
 

@@ -22,11 +22,11 @@ The application stores its own settings under the platform-specific configuratio
 
 Open **Settings** and choose:
 
-- **llama.cpp Folder** first. The tool discovers `llama-fit-params` and `llama-bench` beneath standard `build/bin` locations and known build directories such as `build-mixed`. Use **Rescan** and choose the active binaries if several builds are present.
+- **llama.cpp Folder** (optional). By default `llama-fit-params` and `llama-bench` are the binaries next to the fixed `llama-server` in `Engines/llama.cpp/build/bin/Release`. Point this folder at a checkout to also discover alternate builds beneath standard `build/bin` locations and known build directories such as `build-mixed`; use **Rescan** and choose the active binaries if several builds are present.
 - **Models**, **MMProj**, **Drafters**, and **Chat Template** folders. There is one general Drafters folder; MTP, DFlash, DSpark, and any other external speculative/draft models all live there.
 - An existing llama-swap YAML configuration file (needed only for the llama-swap features).
 
-The `llama-server` used by the application is fixed at `Engines/llama.cpp/build/bin/Release/llama-server.exe`, shown read-only under **Detected Tools**. Preview, copy, imported commands, test launches, and llama-swap command generation all correspond to that server; for local execution its relative spelling is resolved to an absolute path. There is deliberately no per-command or per-model engine selection.
+The `llama-server` used by the application is fixed at `Engines/llama.cpp/build/bin/Release/llama-server.exe`, shown read-only under **Detected Tools**, and the default `llama-fit-params` / `llama-bench` are the sibling binaries in that same build folder. Preview, copy, imported commands, test launches, and llama-swap command generation all correspond to that server; for local execution the relative spellings are resolved to absolute paths. There is deliberately no per-command or per-model engine selection.
 
 Every path remains editable. A missing prior path is colored as unavailable rather than silently cleared. Save settings, then return to **Command Builder**; folder-backed selectors refresh from these locations and have individual refresh buttons.
 
