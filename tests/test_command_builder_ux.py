@@ -97,16 +97,18 @@ def test_double_click_selects_negative_boolean_variant():
     assert picker.selected.canonical_name == "--perf"
 
 
-def test_picker_rows_show_flag_descriptions():
+def test_picker_rows_show_only_the_flag():
     picker = SearchableFlagPicker(catalog())
     row = picker.results.itemWidget(item_for(picker, "-c"))
-    assert row.flag_label.text() == "-c N"
-    assert "context" in row.description_label.text()
-    assert row.description_label.parentWidget() is row
+    assert isinstance(row.star, QToolButton)
+    assert row.flag_label.text() == "-c"
+    assert row.flag_label.font().bold()
+    assert not hasattr(row, "description_label")
+    assert row.star.accessibleName() == "Pin --ctx-size"
+    assert row.star.text() == "☆"
     for index in range(picker.results.count()):
         entry = picker.results.itemWidget(picker.results.item(index))
         assert entry.flag_label.text()
-        assert entry.description_label.parentWidget() is entry
 
 
 def test_builder_persists_pin_changes_even_when_picker_cancels(monkeypatch):
@@ -324,32 +326,6 @@ def test_settings_roundtrip_normalizes_pins_spacers_and_legacy_keys(tmp_path, mo
     assert reloaded["pinned_flags"] == ["--flash-attn", "--port"]
     assert reloaded["builder_spacers"] == [2, 1]
     assert "picker_show_advanced" not in reloaded
-
-
-def test_picker_row_uses_separate_flag_and_description_labels():
-    picker = SearchableFlagPicker(catalog())
-    row = picker.results.itemWidget(item_for(picker, "-c"))
-    assert isinstance(row.star, QToolButton)
-    assert row.flag_label is not row.description_label
-    assert row.flag_label.text() == "-c N"
-    assert row.description_label.text() == "context"
-    assert row.flag_label.font().bold()
-    assert row.description_label.wordWrap()
-    assert row.star.accessibleName() == "Pin --ctx-size"
-    assert row.star.text() == "☆"
-
-
-def test_long_description_grows_row_and_wraps_without_clipping():
-    long_description = " ".join(["word"] * 80)
-    extended = FlagCatalog.parse_readme(CATALOG_MARKDOWN + f"| `-x, --experimental-long-flag N` | {long_description} |\n")
-    picker = SearchableFlagPicker(extended)
-    short = picker.results.itemWidget(item_for(picker, "-c"))
-    long_row = picker.results.itemWidget(item_for(picker, "--experimental-long-flag"))
-    assert long_row.sizeHint().height() > short.sizeHint().height()
-    assert long_row.description_label.wordWrap()
-    # the item size hint tracks the row, so the list reserves real height for the wrapped text
-    item = item_for(picker, "--experimental-long-flag")
-    assert item.sizeHint().height() == long_row.sizeHint().height()
 
 
 def test_picker_shows_every_result_beyond_one_hundred_and_pins_late_results():

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QRect, QSize, Qt
+from PySide6.QtCore import QEvent, QSize, Qt
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QToolButton, QVBoxLayout, QWidget,
 )
@@ -10,13 +10,13 @@ from app.services.flag_catalog import FlagCatalog
 
 
 class _FlagRow(QWidget):
-    """One picker row: a pin star button, a bold flag/grammar line, and a wrapped description line."""
+    """One picker row: a pin star button and a bold flag line."""
 
     def __init__(self, spec: FlagSpec, flag: str, pinned: bool, on_pin, width: int) -> None:
         super().__init__()
         self._width = width
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(6, 5, 8, 5)
+        layout.setContentsMargins(6, 4, 8, 4)
         layout.setSpacing(8)
         self.star = QToolButton()
         self.star.setCheckable(True)
@@ -25,27 +25,16 @@ class _FlagRow(QWidget):
         self.star.setFixedSize(20, 20)
         self._update_star(spec, pinned)
         self.star.clicked.connect(lambda checked: on_pin(spec.canonical_name, checked))
-        text = QVBoxLayout()
-        text.setContentsMargins(0, 0, 0, 0)
-        text.setSpacing(2)
-        self.flag_label = QLabel(f"{flag} {' '.join(spec.parameter_names)}".strip())
+        self.flag_label = QLabel(flag)
         flag_font = self.flag_label.font()
         flag_font.setBold(True)
         self.flag_label.setFont(flag_font)
-        self.description_label = QLabel(spec.description)
-        self.description_label.setWordWrap(True)
-        self.description_label.setStyleSheet("color: palette(mid);")
-        text.addWidget(self.flag_label)
-        text.addWidget(self.description_label)
-        layout.addWidget(self.star, 0, Qt.AlignmentFlag.AlignTop)
-        layout.addLayout(text, 1)
+        layout.addWidget(self.star)
+        layout.addWidget(self.flag_label, 1)
 
     def sizeHint(self) -> QSize:
-        available = max(10, self._width - self.star.width() - 8 - 14)
-        metrics = self.description_label.fontMetrics()
-        description_height = metrics.boundingRect(QRect(0, 0, available, 10_000), Qt.TextFlag.TextWordWrap, self.description_label.text()).height()
-        height = self.flag_label.sizeHint().height() + 2 + description_height + 10
-        return QSize(max(self._width, 10), max(height, 34))
+        height = max(self.flag_label.sizeHint().height(), self.star.height()) + 8
+        return QSize(max(self._width, 10), max(height, 30))
 
     def _update_star(self, spec: FlagSpec, pinned: bool) -> None:
         self.star.setText("★" if pinned else "☆")
@@ -106,7 +95,7 @@ class SearchableFlagPicker(QDialog):
         entries.sort(key=lambda entry: self._rank(entry[0], entry[1], query, pin_order))
         width = self._row_width()
         for spec, flag in entries:
-            item = QListWidgetItem(f"{flag} {' '.join(spec.parameter_names)}".strip())
+            item = QListWidgetItem(flag)
             item.setData(Qt.ItemDataRole.UserRole, spec)
             item.setData(Qt.ItemDataRole.UserRole + 1, flag)
             row = _FlagRow(spec, flag, spec.canonical_name in pin_order, self._toggle_pin, width)
